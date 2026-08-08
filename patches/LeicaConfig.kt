@@ -683,7 +683,6 @@ object LeicaConfig {
      */
     @Volatile
     var runtimeLutOverride: String? = null
-        private set
 
     /**
      * forcedBaselineLutId — ID do LUT baseline forçado.

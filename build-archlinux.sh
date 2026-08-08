@@ -3683,7 +3683,6 @@ new_var = '''    /**
      */
     @Volatile
     var runtimeLutOverride: String? = null
-        private set
 
     /**
      * forcedBaselineLutId — ID do LUT baseline forçado.
@@ -4159,16 +4158,16 @@ import sys
 path = sys.argv[1]
 text = open(path, encoding='utf-8').read()
 
-# 1. Add Bolt + Button + ButtonDefaults imports if missing
+# 1. Add FlashOn + Button + ButtonDefaults imports if missing
 import_anchor = 'import androidx.compose.material.icons.filled.Check\n'
-new_imports = '''import androidx.compose.material.icons.filled.Bolt
+new_imports = '''import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 '''
-if 'import androidx.compose.material.icons.filled.Bolt' not in text:
+if 'import androidx.compose.material.icons.filled.FlashOn' not in text:
     text = text.replace(import_anchor, new_imports, 1)
-    print("P-65.3: imports added (Bolt + Button + ButtonDefaults)")
+    print("P-65.3: imports added (FlashOn + Button + ButtonDefaults)")
 
 # 2. Insert ONE-CLICK MAX item at the TOP of LazyColumn content (BEFORE the Capture Mode item)
 capture_mode_item_start = '''            // ─── Capture Mode ──────────────────────────────────────────
@@ -4192,7 +4191,7 @@ one_click_item = '''            // ─── One-Click MAX preset (v6.4.0) ─�
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Bolt,
+                        imageVector = Icons.Filled.FlashOn,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
