@@ -4159,7 +4159,7 @@ path = sys.argv[1]
 text = open(path, encoding='utf-8').read()
 
 # 1. Add Button + ButtonDefaults imports if missing (Check is in material-icons-core
-#    and is already imported upstream — FlashOn/Bolt are NOT in core, caused compile errors.)
+#    and is already imported upstream — Bolt is NOT in core, caused compile errors.)
 import_anchor = 'import androidx.compose.material.icons.filled.Check\n'
 new_imports = '''import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
