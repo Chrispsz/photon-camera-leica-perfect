@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.0-fix12"
+readonly FORK_VERSION="6.4.1"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -4320,6 +4320,136 @@ PY
 
     fi # end NO_MENU guard (P-64 + P-65)
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Tier 15 (P-67) — v6.4.1: UI LUT picker runtime override (fixes stuck LUT in ABSOLUTE builds)
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BUG v6.4.0-fix12 ABSOLUTE: user can't change LUT via the bottom LUT panel.
+    #
+    # Root cause:
+    #   1. JSON config sets active_profile="leica_perfect_signature" (NON-baseline)
+    #      → LeicaConfig.isActiveProfileBaseline == false
+    #   2. P-52a in CameraViewModel.setLut() shadows user's lutId param:
+    #        val lutId = if (!isActiveProfileBaseline) activeLutId else lutId
+    #      → User's pick discarded, always replaced with activeLutId ("leica_m9")
+    #   3. P-63 created runtimeLutOverride var (takes precedence over everything)
+    #      BUT it's only SET by P-64 (mod menu LUT picker) which is SKIPPED in
+    #      ABSOLUTE (NO_MENU=1) builds. So runtimeLutOverride stays null, and
+    #      forcedBaselineLutId returns activeLutId ("leica_m9") for all 3 P-19
+    #      rendering sites (BaselineColorCorrection, CameraViewModel, GalleryManager).
+    #
+    # FIX P-67: Hook the NATIVE PhotonCamera UI LUT picker (setLut in CameraViewModel)
+    # to set LeicaConfig.runtimeLutOverride = lutId BEFORE P-52a's shadowing runs.
+    # This makes the user's pick take precedence over the active creative profile's LUT.
+    # Works in ABSOLUTE builds (no mod menu needed) — uses the standard picker UI.
+    section "P-67: Cron 10 — UI LUT picker runtime override (v6.4.1)"
+    local p67_count=0
+
+    # P-67.1: CameraViewModel.setLut() — set runtimeLutOverride BEFORE P-52a shadowing
+    substep "P-67.1: CameraViewModel.setLut() — propagate user pick to runtimeLutOverride"
+    local cvm_p67="$APP_JAVA/viewmodel/CameraViewModel.kt"
+    if [[ -f "$cvm_p67" ]]; then
+        if grep -q 'P-67.*runtimeLutOverride\|setRuntimeLutOverride' "$cvm_p67" 2>/dev/null; then
+            ok "P-67.1: already patched (idempotent)"
+            p67_count=$((p67_count + 1))
+        else
+            # Insert runtimeLutOverride setter at the very start of setLut() body,
+            # BEFORE the P-52a shadowing line.
+            python3 - "$cvm_p67" <<'PYEOF'
+import re, sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+anchor = '        val lutId = if (!LeicaConfig.isActiveProfileBaseline) LeicaConfig.activeLutId else lutId  // v6.3.4 creative profile override'
+if anchor in src:
+    new_line = '        LeicaConfig.setRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
+    src = src.replace(anchor, new_line + anchor, 1)
+    p.write_text(src)
+    print("P-67.1: injected setRuntimeLutOverride() call before P-52a shadowing")
+elif 'fun setLut(lutId: String?, persist: Boolean = true) {' in src:
+    sig = 'fun setLut(lutId: String?, persist: Boolean = true) {'
+    new_line = '\n        LeicaConfig.setRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
+    src = src.replace(sig, sig + new_line, 1)
+    p.write_text(src)
+    print("P-67.1: injected setRuntimeLutOverride() at start of setLut() (no P-52a anchor)")
+else:
+    print("P-67.1: WARN — setLut() signature not found")
+    sys.exit(1)
+PYEOF
+            if grep -q 'setRuntimeLutOverride' "$cvm_p67" 2>/dev/null; then
+                ok "P-67.1: setLut() now calls setRuntimeLutOverride() (user LUT picker takes precedence)"
+                p67_count=$((p67_count + 1))
+            else
+                warn "P-67.1: injection failed"
+            fi
+        fi
+    else
+        warn "P-67.1: CameraViewModel.kt not found at $cvm_p67"
+    fi
+
+    # P-67.2: LeicaConfig.kt — add setRuntimeLutOverride(lutId) helper
+    # (null-safe: null/empty string clears the override → reset to profile default)
+    substep "P-67.2: LeicaConfig.kt — add setRuntimeLutOverride() helper"
+    local cfg_p67="$SCRIPT_DIR/patches/LeicaConfig.kt"
+    if [[ -f "$cfg_p67" ]]; then
+        if grep -q 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
+            ok "P-67.2: already patched (idempotent)"
+            p67_count=$((p67_count + 1))
+        else
+            python3 - "$cfg_p67" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+marker = '    var runtimeLutOverride: String? = null'
+if marker not in src:
+    print("P-67.2: WARN — runtimeLutOverride var not found (P-63.1 not applied?)")
+    sys.exit(1)
+helper = '''
+    /**
+     * Set runtime LUT override — v6.4.1 (P-67).
+     * Helper chamado pelo UI LUT picker (setLut no CameraViewModel).
+     * Passa null/empty string para resetar ao perfil criativo ativo.
+     */
+    fun setRuntimeLutOverride(lutId: String?) {
+        runtimeLutOverride = lutId?.takeIf { it.isNotBlank() }  // P-67: null/empty → null (reset to profile default)
+    }
+'''
+src = src.replace(marker, marker + helper, 1)
+p.write_text(src)
+print("P-67.2: setRuntimeLutOverride() helper added to LeicaConfig")
+PYEOF
+            if grep -q 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
+                ok "P-67.2: setRuntimeLutOverride() helper present"
+                p67_count=$((p67_count + 1))
+            else
+                warn "P-67.2: helper injection failed"
+            fi
+        fi
+    else
+        warn "P-67.2: LeicaConfig.kt not found at $cfg_p67"
+    fi
+
+    # P-67.3: Verification
+    substep "P-67.3: verification greps"
+    local p67_verify=0
+    local p67_setlut=$(grep -c 'setRuntimeLutOverride(lutId)' "$cvm_p67" 2>/dev/null || echo 0)
+    local p67_helper=$(grep -c 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null || echo 0)
+    if [[ "$p67_setlut" -ge 1 ]]; then ((++p67_verify)); fi
+    if [[ "$p67_helper" -ge 1 ]]; then ((++p67_verify)); fi
+    info "P-67.3: setRuntimeLutOverride in CameraViewModel=$p67_setlut (>=1), helper in LeicaConfig=$p67_helper (>=1)"
+    if [[ "$p67_verify" -ge 2 ]]; then
+        ok "P-67.3: verification passed ($p67_verify/2 greps OK)"
+        ((++p67_count))
+    else
+        warn "P-67.3: verification partial ($p67_verify/2 greps OK)"
+    fi
+
+    ok "P-67: UI LUT picker runtime override applied (v6.4.1) — sub-patches: $p67_count/3"
+    if [[ "$p67_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
     # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
@@ -4331,7 +4461,7 @@ PY
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "67 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max"
+        ok "68 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override (fixes stuck LUT in ABSOLUTE builds)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi

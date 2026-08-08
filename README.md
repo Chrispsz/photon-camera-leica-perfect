@@ -1,4 +1,4 @@
-# Photon Camera — Leica Perfect v6.4.0-fix10
+# Photon Camera — Leica Perfect v6.4.1
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
 with **67 surgical patches** (Cron 18 PERFECT-ULTIMATE), optimized for the
@@ -14,13 +14,13 @@ NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click)
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.0-fix10-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.1-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.0-fix10-debug.apk
+adb install -r LeicaPerfect-v6.4.1-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -39,7 +39,7 @@ with Gradle:
 | `patch` | 67 surgical `sed` patches (tiers P-1 … P-65) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — fast, no OOM) |
 
-Output: `apk/LeicaPerfect-v6.4.0-fix10-debug.apk` (~100 MB).
+Output: `apk/LeicaPerfect-v6.4.1-debug.apk` (~100 MB).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -86,7 +86,7 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.0-fix10 (vs upstream)
+## What's in v6.4.1 (vs upstream)
 
 - **Cron 18 PERFECT-ULTIMATE** — 67 patches / 157 substeps, all verified
 - `mode_max` as the active default (was `mode_fast`)
