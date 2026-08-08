@@ -4360,22 +4360,22 @@ p = pathlib.Path(sys.argv[1])
 src = p.read_text()
 anchor = '        val lutId = if (!LeicaConfig.isActiveProfileBaseline) LeicaConfig.activeLutId else lutId  // v6.3.4 creative profile override'
 if anchor in src:
-    new_line = '        LeicaConfig.setRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
+    new_line = '        LeicaConfig.applyRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
     src = src.replace(anchor, new_line + anchor, 1)
     p.write_text(src)
-    print("P-67.1: injected setRuntimeLutOverride() call before P-52a shadowing")
+    print("P-67.1: injected applyRuntimeLutOverride() call before P-52a shadowing")
 elif 'fun setLut(lutId: String?, persist: Boolean = true) {' in src:
     sig = 'fun setLut(lutId: String?, persist: Boolean = true) {'
-    new_line = '\n        LeicaConfig.setRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
+    new_line = '\n        LeicaConfig.applyRuntimeLutOverride(lutId)  // P-67 v6.4.1: UI LUT picker sets runtime override (fixes stuck LUT in ABSOLUTE builds)\n'
     src = src.replace(sig, sig + new_line, 1)
     p.write_text(src)
-    print("P-67.1: injected setRuntimeLutOverride() at start of setLut() (no P-52a anchor)")
+    print("P-67.1: injected applyRuntimeLutOverride() at start of setLut() (no P-52a anchor)")
 else:
     print("P-67.1: WARN — setLut() signature not found")
     sys.exit(1)
 PYEOF
-            if grep -q 'setRuntimeLutOverride' "$cvm_p67" 2>/dev/null; then
-                ok "P-67.1: setLut() now calls setRuntimeLutOverride() (user LUT picker takes precedence)"
+            if grep -q 'applyRuntimeLutOverride' "$cvm_p67" 2>/dev/null; then
+                ok "P-67.1: setLut() now calls applyRuntimeLutOverride() (user LUT picker takes precedence)"
                 p67_count=$((p67_count + 1))
             else
                 warn "P-67.1: injection failed"
@@ -4385,18 +4385,21 @@ PYEOF
         warn "P-67.1: CameraViewModel.kt not found at $cvm_p67"
     fi
 
-    # P-67.2: LeicaConfig.kt — add setRuntimeLutOverride(lutId) helper
+    # P-67.2: LeicaConfig.kt — add applyRuntimeLutOverride(lutId) helper
     # (null-safe: null/empty string clears the override → reset to profile default)
     # IMPORTANT: target the INSTALLED copy in source tree ($APP_JAVA/raw/LeicaConfig.kt),
     # NOT the patches/ source — P-1 already copied the file before P-67 runs.
-    substep "P-67.2: LeicaConfig.kt — add setRuntimeLutOverride() helper"
+    # NOTE: function name is `applyRuntimeLutOverride` (not `setRuntimeLutOverride`)
+    # because Kotlin auto-generates a setter `setRuntimeLutOverride` for the var,
+    # which would clash with a user-defined function of the same name (JVM signature).
+    substep "P-67.2: LeicaConfig.kt — add applyRuntimeLutOverride() helper"
     local cfg_p67="$APP_JAVA/raw/LeicaConfig.kt"
     if [[ ! -f "$cfg_p67" ]]; then
         # Fallback to patches/ dir (in case P-1 didn't run / different layout)
         cfg_p67="$SCRIPT_DIR/patches/LeicaConfig.kt"
     fi
     if [[ -f "$cfg_p67" ]]; then
-        if grep -q 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
+        if grep -q 'fun applyRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
             ok "P-67.2: already patched (idempotent)"
             p67_count=$((p67_count + 1))
         else
@@ -4410,20 +4413,22 @@ if marker not in src:
     sys.exit(1)
 helper = '''
     /**
-     * Set runtime LUT override — v6.4.1 (P-67).
+     * Apply runtime LUT override — v6.4.1 (P-67).
      * Helper chamado pelo UI LUT picker (setLut no CameraViewModel).
      * Passa null/empty string para resetar ao perfil criativo ativo.
+     * NOTE: Nome `applyRuntimeLutOverride` (não `setRuntimeLutOverride`) para
+     * evitar clash com o setter auto-gerado do var runtimeLutOverride.
      */
-    fun setRuntimeLutOverride(lutId: String?) {
+    fun applyRuntimeLutOverride(lutId: String?) {
         runtimeLutOverride = lutId?.takeIf { it.isNotBlank() }  // P-67: null/empty → null (reset to profile default)
     }
 '''
 src = src.replace(marker, marker + helper, 1)
 p.write_text(src)
-print("P-67.2: setRuntimeLutOverride() helper added to LeicaConfig")
+print("P-67.2: applyRuntimeLutOverride() helper added to LeicaConfig")
 PYEOF
-            if grep -q 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
-                ok "P-67.2: setRuntimeLutOverride() helper present"
+            if grep -q 'fun applyRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
+                ok "P-67.2: applyRuntimeLutOverride() helper present"
                 p67_count=$((p67_count + 1))
             else
                 warn "P-67.2: helper injection failed"
@@ -4436,11 +4441,11 @@ PYEOF
     # P-67.3: Verification
     substep "P-67.3: verification greps"
     local p67_verify=0
-    local p67_setlut=$(grep -c 'setRuntimeLutOverride(lutId)' "$cvm_p67" 2>/dev/null || echo 0)
-    local p67_helper=$(grep -c 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null || echo 0)
+    local p67_setlut=$(grep -c 'applyRuntimeLutOverride(lutId)' "$cvm_p67" 2>/dev/null || echo 0)
+    local p67_helper=$(grep -c 'fun applyRuntimeLutOverride' "$cfg_p67" 2>/dev/null || echo 0)
     if [[ "$p67_setlut" -ge 1 ]]; then ((++p67_verify)); fi
     if [[ "$p67_helper" -ge 1 ]]; then ((++p67_verify)); fi
-    info "P-67.3: setRuntimeLutOverride in CameraViewModel=$p67_setlut (>=1), helper in LeicaConfig=$p67_helper (>=1)"
+    info "P-67.3: applyRuntimeLutOverride in CameraViewModel=$p67_setlut (>=1), helper in LeicaConfig=$p67_helper (>=1)"
     if [[ "$p67_verify" -ge 2 ]]; then
         ok "P-67.3: verification passed ($p67_verify/2 greps OK)"
         ((++p67_count))
