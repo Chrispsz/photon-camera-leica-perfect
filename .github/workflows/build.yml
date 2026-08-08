@@ -4,13 +4,22 @@ name: Build & Release APK
 # bjzhou/PhotonCamera 1.26.1 + 67 surgical patches, then publishes the APK
 # as a rolling GitHub Release (tag "latest") for fast CDN-backed download.
 #
-# Stable download URL (always the newest green build):
+# Triggers (intentionally NOT on every push — avoids unnecessary rebuilds):
+#   - workflow_dispatch  → manual "Run workflow" button on the Actions tab
+#   - push tags v*       → cut a new versioned release (e.g. v6.4.0-fix11)
+#
+# The current APK is FROZEN in the versioned release `v6.4.0-fix10`:
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/tag/v6.4.0-fix10
+# (single APK + 4 fragments + reassemble.sh). Download it directly — no rebuild needed.
+#
+# Rolling `latest` release URL (newest green build, when you trigger a rebuild):
 #   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.0-fix10-debug.apk
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -84,6 +93,24 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
+      - name: Split APK into ~36MB fragments + checksums + reassemble.sh
+        run: |
+          set -e
+          cd apk
+          APK=$(find . -name '*.apk' -type f | head -1)
+          APK_BASE=$(basename "$APK")
+          echo "Splitting $APK_BASE ..."
+          split -b 36m -a 1 "$APK" "${APK_BASE}.part"
+          ls -la "${APK_BASE}".part*
+          echo "--- sha256 of fragments ---"
+          sha256sum "${APK_BASE}".part* | tee fragments.sha256
+          echo "--- full apk sha256 ---"
+          sha256sum "$APK" | tee apk.sha256
+          echo "--- copy static reassemble.sh from repo root ---"
+          cp ../reassemble.sh ./reassemble.sh
+          chmod +x reassemble.sh
+          ls -la
+
       - name: "Create / update rolling Release (tag: latest)"
         uses: softprops/action-gh-release@v2
         with:
@@ -104,10 +131,19 @@ jobs:
             Download the `.apk` asset below and install on your device
             (enable "Install unknown apps" for your browser/file manager).
 
+            ### Fragments (parallel / resumable download)
+            If the single APK download is slow/flaky, grab the 4 `.part*` files
+            + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.
+
             ---
             Build commit: ${{ github.sha }}
             Built at: ${{ github.run_id }}
-          files: apk/*.apk
+          files: |
+            apk/*.apk
+            apk/*.apk.part*
+            apk/reassemble.sh
+            apk/apk.sha256
+            apk/fragments.sha256
           fail_on_unmatched_files: true
           make_latest: true
           prerelease: false
