@@ -4158,16 +4158,16 @@ import sys
 path = sys.argv[1]
 text = open(path, encoding='utf-8').read()
 
-# 1. Add FlashOn + Button + ButtonDefaults imports if missing
+# 1. Add Button + ButtonDefaults imports if missing (Check is in material-icons-core
+#    and is already imported upstream — FlashOn/Bolt are NOT in core, caused compile errors.)
 import_anchor = 'import androidx.compose.material.icons.filled.Check\n'
-new_imports = '''import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Check
+new_imports = '''import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 '''
-if 'import androidx.compose.material.icons.filled.FlashOn' not in text:
+if 'import androidx.compose.material3.ButtonDefaults' not in text:
     text = text.replace(import_anchor, new_imports, 1)
-    print("P-65.3: imports added (FlashOn + Button + ButtonDefaults)")
+    print("P-65.3: imports added (Button + ButtonDefaults — Check already present upstream)")
 
 # 2. Insert ONE-CLICK MAX item at the TOP of LazyColumn content (BEFORE the Capture Mode item)
 capture_mode_item_start = '''            // ─── Capture Mode ──────────────────────────────────────────
@@ -4191,7 +4191,7 @@ one_click_item = '''            // ─── One-Click MAX preset (v6.4.0) ─�
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.FlashOn,
+                        imageVector = Icons.Filled.Check,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
