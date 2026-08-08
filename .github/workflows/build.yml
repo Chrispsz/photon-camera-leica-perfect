@@ -35,12 +35,20 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            platforms;android-35
-            build-tools;35.0.0
-            cmake;3.22.1
-            ndk;27.2.12479018
+
+      - name: Install SDK components (platform 35, build-tools, NDK, CMake)
+        run: |
+          set -e
+          sdkmanager --version
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.2.12479018"
+          echo "--- installed NDKs ---"
+          ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
 
       - name: Show environment
         run: |
@@ -76,7 +84,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-      - name: Create / update rolling Release (tag: latest)
+      - name: "Create / update rolling Release (tag: latest)"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
