@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.0-fix10"
+readonly FORK_VERSION="6.4.0-fix12"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -1574,6 +1574,10 @@ print('OK')
         ((++patch_fail))
     fi
 
+    # ── NO_MENU guard: skip P-46 + P-47 (mod menu UI) in ABSOLUTE builds ──
+    if [[ -n "${NO_MENU:-}" ]]; then
+        info "P-46/P-47: SKIPPED (NO_MENU=1 — ABSOLUTE build, no mod menu UI)"
+    else
     # ── P-46a: Install LeicaSettingsScreen.kt ──
     substep "P-46a: Instalar LeicaSettingsScreen.kt (Compose settings panel)"
     local leica_screen_src="$PATCH_DIR/LeicaSettingsScreen.kt"
@@ -1991,6 +1995,8 @@ PYEOF
     # v6.3.3: fix real que pega o pattern `: Type get() = expr` (não `= value { get() = ... }`)
     # Estes fixes são IDEMPOTENTES — podem ser rodados múltiplas vezes sem efeito colateral.
     # ═══════════════════════════════════════════════════════════════════════════
+    fi # end NO_MENU guard (P-46 + P-47)
+
     section "P-51: Compilation fixes (v6.3.3)"
     local p51_count=0
 
@@ -3339,6 +3345,59 @@ GRADLE_KT
     echo ""
 
     # ───────────────────────────────────────────────────────────────────────
+    # Tier 13b (P-66) — v6.4.0-fix12: ccache for native C/C++ builds (ABSOLUTE)
+    # ───────────────────────────────────────────────────────────────────────
+    # Injects CMAKE_CXX_COMPILER_LAUNCHER=ccache + CMAKE_C_COMPILER_LAUNCHER=ccache
+    # into the externalNativeBuild cmake block of app/build.gradle.kts.
+    # When ccache is installed on the build machine, native .so recompilation
+    # is dramatically faster (incremental builds skip unchanged C++ files).
+    section "P-66: ccache launcher in build.gradle.kts (v6.4.0-fix12 — ABSOLUTE)"
+    local p66_count=0
+    if [[ -f "$gradle_kts" ]]; then
+        if grep -q 'CMAKE_CXX_COMPILER_LAUNCHER' "$gradle_kts" 2>/dev/null; then
+            ok "P-66: already patched (idempotent)"
+            ((++p66_count))
+        else
+            # Insert ccache args into the cmake { } block (after doNotStrip block)
+            # Use Python for robust multi-line insertion after the packaging block
+            python3 - "$gradle_kts" <<'PYINS' || sed -i '/doNotStrip/a\        arguments += "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"\n        arguments += "-DCMAKE_C_COMPILER_LAUNCHER=ccache"' "$gradle_kts"
+import sys, re
+path = sys.argv[1]
+src = open(path).read()
+# Find the cmake { } block inside externalNativeBuild and inject ccache args
+if 'CMAKE_CXX_COMPILER_LAUNCHER' not in src:
+    # Insert after the first occurrence of 'cmake {' block opening
+    # Pattern: cmake {  followed by possible whitespace/newlines
+    pattern = r'(externalNativeBuild\s*\{[^}]*?cmake\s*\{)'
+    repl = r'\1\n        arguments += "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"\n        arguments += "-DCMAKE_C_COMPILER_LAUNCHER=ccache"'
+    new = re.sub(pattern, repl, src, count=1, flags=re.DOTALL)
+    if new != src:
+        open(path, 'w').write(new)
+        print("P-66: injected ccache launcher args via Python")
+    else:
+        # Fallback: just append cmake args block
+        print("P-66: Python regex did not match, trying sed fallback")
+        sys.exit(1)
+PYINS
+            if grep -q 'CMAKE_CXX_COMPILER_LAUNCHER' "$gradle_kts" 2>/dev/null; then
+                ok "P-66: ccache launcher args injected into build.gradle.kts"
+                ((++p66_count))
+            else
+                warn "P-66: injection failed — ccache will not be used (build still works, just slower)"
+            fi
+        fi
+    else
+        warn "P-66: build.gradle.kts not found at $gradle_kts"
+    fi
+    ok "P-66: ccache applied (v6.4.0-fix12) — sub-patches: $p66_count/1"
+    if [[ "$p66_count" -ge 1 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
     # Tier 13 (P-61) — v6.3.8-fix4: Install LeicaStateDumper.kt + wire in MyCameraApplication
     # ───────────────────────────────────────────────────────────────────────
     # Comprehensive debug logger — dumps entire app config to logcat (tag: LeicaPerfectState)
@@ -3829,6 +3888,10 @@ PY
     # ───────────────────────────────────────────────────────────────────────
     # Adds a LUT picker section to LeicaSettingsScreen.kt with 5 curated LUTs:
     #   Leica M9 CCD, Hasselblad HNCS, Fuji Classic Chrome, Fuji Classic Neg, CineStill 800T.
+    # ── NO_MENU guard: skip P-64 + P-65 (LUT picker + ONE-CLICK MAX button) in ABSOLUTE builds ──
+    if [[ -n "${NO_MENU:-}" ]]; then
+        info "P-64/P-65: SKIPPED (NO_MENU=1 — ABSOLUTE build, no LUT picker / ONE-CLICK MAX button)"
+    else
     section "P-64: Cron 8 — 5 best LUTs in mod menu (v6.4.0)"
     local p64_count=0
 
@@ -4254,6 +4317,8 @@ PY
         ((++patch_fail))
     fi
     echo ""
+
+    fi # end NO_MENU guard (P-64 + P-65)
 
     # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO

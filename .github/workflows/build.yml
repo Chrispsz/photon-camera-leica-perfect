@@ -1,16 +1,15 @@
 name: Build & Release APK
 
-# Builds the Photon Camera fork (Leica Perfect v6.4.0-fix10) from upstream
-# bjzhou/PhotonCamera 1.26.1 + 67 surgical patches, then publishes the APK
-# as a rolling GitHub Release (tag "latest") for fast CDN-backed download.
+# Builds the Photon Camera fork (Leica Perfect v6.4.0-fix12 ABSOLUTE) from upstream
+# bjzhou/PhotonCamera 1.26.1 + surgical patches, then publishes the APK as a rolling
+# GitHub Release (tag "latest") for fast CDN-backed download.
 #
-# Triggers:
-#   - push to main       → auto-rebuild + refresh rolling `latest` release
-#   - workflow_dispatch  → manual "Run workflow" button on the Actions tab
+# ABSOLUTE build: NO_MENU=1 (no mod menu UI — mode_max baked from JSON config).
+# ccache enabled for faster native C/C++ recompilation.
+# APK + fragments + 7z supercompressed archive published to the `latest` release.
 #
-# Rolling `latest` release (always the newest green build) — single APK + 4 fragments:
-#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.0-fix10-debug.apk
-# Fragments (parallel / resumable download): .parta .partb .partc .partd + reassemble.sh
+# Rolling `latest` release URL (always the newest green build):
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.0-fix12-debug.apk
 
 on:
   push:
@@ -28,6 +27,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     timeout-minutes: 75
+    env:
+      NO_MENU: "1"
     steps:
       - name: Checkout fork (patches + config + build script)
         uses: actions/checkout@v4
@@ -41,9 +42,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK components (platform 35, build-tools, NDK, CMake)
+      - name: Install SDK components + ccache + p7zip
         run: |
           set -e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ccache p7zip-full
+          ccache --version | head -1
+          7z | head -2
           sdkmanager --version
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager \
@@ -55,17 +60,31 @@ jobs:
           echo "--- installed NDKs ---"
           ls "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || true
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-ndk27-${{ hashFiles('patches/*.kt', 'build-archlinux.sh') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-ndk27-
+
       - name: Show environment
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "NO_MENU=$NO_MENU"
           java -version
+          ccache --version | head -1
           git --version
           nproc
           free -h
 
       - name: Build (clone upstream + patch + gradle assembleDefaultDebug)
+        env:
+          CCACHE_DIR: ~/.ccache
         run: |
+          mkdir -p ~/.ccache
+          ccache -M 2G 2>/dev/null || true
           chmod +x build-archlinux.sh
           ANDROID_HOME="$ANDROID_SDK_ROOT" ./build-archlinux.sh all
 
@@ -84,18 +103,18 @@ jobs:
       - name: Upload build artifact (90-day)
         uses: actions/upload-artifact@v4
         with:
-          name: LeicaPerfect-v6.4.0-fix10-debug-apk
+          name: LeicaPerfect-v6.4.0-fix12-debug-apk
           path: apk/*.apk
           retention-days: 90
           if-no-files-found: error
 
-      - name: Split APK into ~36MB fragments + checksums + reassemble.sh
+      - name: Split APK into ~36MB fragments + checksums + 7z supercompress
         run: |
           set -e
           cd apk
           APK=$(find . -name '*.apk' -type f | head -1)
           APK_BASE=$(basename "$APK")
-          echo "Splitting $APK_BASE ..."
+          echo "=== Splitting $APK_BASE into ~36MB fragments ==="
           split -b 36m -a 1 "$APK" "${APK_BASE}.part"
           ls -la "${APK_BASE}".part*
           echo "--- sha256 of fragments ---"
@@ -105,31 +124,47 @@ jobs:
           echo "--- copy static reassemble.sh from repo root ---"
           cp ../reassemble.sh ./reassemble.sh
           chmod +x reassemble.sh
+          echo "=== 7z supercompress (LZMA2 max) ==="
+          7z a -t7z -m0=lzma2 -mx=9 -mfb=64 -ms=on "${APK_BASE}.7z" "$APK"
+          ls -la "${APK_BASE}.7z"
+          echo "--- 7z sha256 ---"
+          sha256sum "${APK_BASE}.7z" | tee 7z.sha256
+          echo "--- compression ratio ---"
+          APK_SIZE=$(stat -c %s "$APK")
+          SEVENZ_SIZE=$(stat -c %s "${APK_BASE}.7z")
+          echo "APK: $APK_SIZE bytes ($(($APK_SIZE / 1024 / 1024)) MB)"
+          echo "7z:  $SEVENZ_SIZE bytes ($(($SEVENZ_SIZE / 1024 / 1024)) MB)"
+          echo "ratio: $(echo "scale=1; $SEVENZ_SIZE * 100 / $APK_SIZE" | bc)%"
           ls -la
 
       - name: "Create / update rolling Release (tag: latest)"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Leica Perfect v6.4.0-fix10 (mode_max)
+          name: Leica Perfect v6.4.0-fix12 ABSOLUTE (mode_max)
           body: |
-            # Leica Perfect v6.4.0-fix10
+            # Leica Perfect v6.4.0-fix12 ABSOLUTE
 
             Photon Camera fork — built from upstream `bjzhou/PhotonCamera` 1.26.1
-            + 67 surgical patches (Cron 18 PERFECT-ULTIMATE).
+            + surgical patches (Cron 18 PERFECT-ULTIMATE).
 
-            ## Defaults
-            - **Capture mode: `mode_max`** (max quality — 15/9/7/11 frames, super-res 2.0x, NLM radius 7, JPEG/HEIC/UltraHDR Q100)
+            ## ABSOLUTE build
+            - **No mod menu** — mode_max is baked from JSON config (no UI to change it)
+            - ccache enabled for faster native builds
+            - **Capture mode: `mode_max`** (15/9/7/11 frames, super-res 2.0x, NLM radius 7, JPEG/HEIC/UltraHDR Q100)
             - Optimized for **Xiaomi 15T** (OV50E + S5KJN1 + S5K3J1 + OV32B)
             - RAW/DNG export disabled (JPEG one-click)
 
-            ## Install
-            Download the `.apk` asset below and install on your device
-            (enable "Install unknown apps" for your browser/file manager).
+            ## Download
+            ### Option A — single APK (easiest)
+            Download `LeicaPerfect-v6.4.0-fix12-debug.apk` and install.
 
-            ### Fragments (parallel / resumable download)
-            If the single APK download is slow/flaky, grab the 4 `.part*` files
-            + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.
+            ### Option B — 7z supercompressed (smallest download)
+            Download `LeicaPerfect-v6.4.0-fix12-debug.apk.7z` (LZMA2 max compression, ~40% smaller).
+            Extract with: `7z x LeicaPerfect-v6.4.0-fix12-debug.apk.7z`
+
+            ### Option C — fragments (parallel / resumable)
+            Grab the 4 `.part*` files + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.
 
             ---
             Build commit: ${{ github.sha }}
@@ -137,9 +172,11 @@ jobs:
           files: |
             apk/*.apk
             apk/*.apk.part*
+            apk/*.apk.7z
             apk/reassemble.sh
             apk/apk.sha256
             apk/fragments.sha256
+            apk/7z.sha256
           fail_on_unmatched_files: true
           make_latest: true
           prerelease: false
