@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.1"
+readonly FORK_VERSION="6.4.2"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -214,7 +214,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 57 patches cirúrgicos (73 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 73 substeps cirúrgicos (57 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 75 substeps cirúrgicos (58 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -4455,6 +4455,107 @@ PYEOF
 
     ok "P-67: UI LUT picker runtime override applied (v6.4.1) — sub-patches: $p67_count/3"
     if [[ "$p67_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Tier 16 (P-68) — v6.4.2: Fix live preview LUT picker (P-52a respects runtimeLutOverride)
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BUG v6.4.1 (persisted from v6.4.0): user taps LUT thumbnails (Leica, Monochrc,
+    # Hass, etc.) in the bottom picker but the live preview STAYS on "M9 CCD".
+    #
+    # ROOT CAUSE (found via upstream source trace — CameraScreen.kt:1691):
+    #   The LUT picker UI DOES call viewModel.setLut(lutId) correctly.
+    #   P-67.1 (v6.4.1) correctly captures the user's pick into runtimeLutOverride
+    #   BEFORE P-52a's shadowing. BUT P-52a's shadowing line:
+    #       val lutId = if (!isActiveProfileBaseline) activeLutId else lutId
+    #   UNCONDITIONALLY replaces lutId with activeLutId ("leica_m9"), discarding
+    #   the user's pick. The rest of setLut() then loads the M9 LUT config into
+    #   currentLutConfig, which feeds the LIVE PREVIEW GL renderer.
+    #
+    #   P-63's forcedBaselineLutId (which DOES read runtimeLutOverride) is only
+    #   used at 3 POST-PROCESSING sites (BaselineColorCorrection, CameraViewModel
+    #   L2531, GalleryManager) — NEVER by the live preview path. So setting
+    #   runtimeLutOverride alone (P-67) cannot fix the live preview.
+    #
+    # FIX P-68: Make P-52a's shadowing consult runtimeLutOverride FIRST, so the
+    # user's pick (captured by P-67.1) flows through to currentLutConfig and the
+    # live preview GL renderer. One-line surgical change.
+    #
+    #   OLD (P-52a):  val lutId = if (!isActiveProfileBaseline) activeLutId else lutId
+    #   NEW (P-68):   val lutId = if (!isActiveProfileBaseline)
+    #                    (runtimeLutOverride ?: activeLutId) else lutId
+    section "P-68: Cron 11 — live preview LUT picker (P-52a respects runtimeLutOverride) (v6.4.2)"
+    local p68_count=0
+
+    # P-68.1: CameraViewModel.setLut() — make P-52a shadowing respect runtimeLutOverride
+    substep "P-68.1: CameraViewModel.setLut() — P-52a shadowing consults runtimeLutOverride"
+    local cvm_p68="$APP_JAVA/viewmodel/CameraViewModel.kt"
+    if [[ -f "$cvm_p68" ]]; then
+        # The P-52a shadowing line (with its v6.3.4 comment) is the anchor.
+        local p52a_old='val lutId = if (!LeicaConfig.isActiveProfileBaseline) LeicaConfig.activeLutId else lutId  // v6.3.4 creative profile override'
+        local p52a_new='val lutId = if (!LeicaConfig.isActiveProfileBaseline) (LeicaConfig.runtimeLutOverride ?: LeicaConfig.activeLutId) else lutId  // v6.4.2 P-68: respect runtime LUT override (fixes live preview LUT picker)'
+        if grep -q 'runtimeLutOverride ?: LeicaConfig.activeLutId' "$cvm_p68" 2>/dev/null; then
+            ok "P-68.1: already patched (idempotent)"
+            p68_count=$((p68_count + 1))
+        elif grep -qF "$p52a_old" "$cvm_p68" 2>/dev/null; then
+            python3 - "$cvm_p68" "$p52a_old" "$p52a_new" <<'PYEOF'
+import sys, pathlib
+path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+p = pathlib.Path(path)
+src = p.read_text()
+if old not in src:
+    print("P-68.1: WARN — P-52a anchor not found (P-52a not applied?)")
+    sys.exit(1)
+src = src.replace(old, new, 1)
+p.write_text(src)
+print("P-68.1: P-52a shadowing now consults runtimeLutOverride (live preview LUT picker fixed)")
+PYEOF
+            if grep -q 'runtimeLutOverride ?: LeicaConfig.activeLutId' "$cvm_p68" 2>/dev/null; then
+                ok "P-68.1: setLut() shadowing respects runtimeLutOverride — live preview will use user's LUT pick"
+                p68_count=$((p68_count + 1))
+            else
+                warn "P-68.1: injection failed"
+            fi
+        else
+            # P-52a may have been applied without the comment, or already partially patched.
+            # Try the bare pattern (without trailing comment).
+            if grep -qF 'val lutId = if (!LeicaConfig.isActiveProfileBaseline) LeicaConfig.activeLutId else lutId' "$cvm_p68" 2>/dev/null; then
+                sed -i 's#val lutId = if (!LeicaConfig.isActiveProfileBaseline) LeicaConfig.activeLutId else lutId#val lutId = if (!LeicaConfig.isActiveProfileBaseline) (LeicaConfig.runtimeLutOverride ?: LeicaConfig.activeLutId) else lutId  // v6.4.2 P-68: respect runtime LUT override#' "$cvm_p68"
+                if grep -q 'runtimeLutOverride ?: LeicaConfig.activeLutId' "$cvm_p68" 2>/dev/null; then
+                    ok "P-68.1: setLut() shadowing respects runtimeLutOverride (bare pattern match)"
+                    p68_count=$((p68_count + 1))
+                else
+                    warn "P-68.1: sed fallback failed"
+                fi
+            else
+                warn "P-68.1: P-52a shadowing line not found in setLut() — cannot apply P-68"
+            fi
+        fi
+    else
+        warn "P-68.1: CameraViewModel.kt not found at $cvm_p68"
+    fi
+
+    # P-68.2: Verification greps
+    substep "P-68.2: verification greps"
+    local p68_shadow=$(grep -c 'runtimeLutOverride ?: LeicaConfig.activeLutId' "$cvm_p68" 2>/dev/null || echo 0)
+    local p68_p67=$(grep -c 'applyRuntimeLutOverride' "$cvm_p68" 2>/dev/null || echo 0)
+    info "P-68.2: runtimeLutOverride-respecting shadow in CameraViewModel=$p68_shadow (>=1), applyRuntimeLutOverride (P-67.1)=$p68_p67 (>=1)"
+    local p68_verify=0
+    [[ "$p68_shadow" -ge 1 ]] && ((++p68_verify))
+    [[ "$p68_p67" -ge 1 ]] && ((++p68_verify))
+    if [[ "$p68_verify" -eq 2 ]]; then
+        ok "P-68.2: verification passed ($p68_verify/2 greps OK)"
+        ((++p68_count))
+    else
+        warn "P-68.2: verification partial ($p68_verify/2 greps OK)"
+    fi
+
+    ok "P-68: live preview LUT picker fixed (v6.4.2) — sub-patches: $p68_count/2"
+    if [[ "$p68_count" -ge 1 ]]; then
         ((++patch_count))
     else
         ((++patch_fail))
