@@ -4604,8 +4604,14 @@ cmd_all() {
     patch_ok=1
 
     # Step 3: Build (pode falhar gracefully se faltarem deps)
-    cmd_build || build_ok=0
-    [[ $build_ok -eq 0 ]] && build_ok=0 || build_ok=1
+    # NOTE: previous logic `cmd_build || build_ok=0` never set build_ok=1 on
+    # success, so a GREEN build was reported as PENDENTE and cmd_all returned 1,
+    # which failed the workflow even though the APK was built. Fixed below.
+    if cmd_build; then
+        build_ok=1
+    else
+        build_ok=0
+    fi
 
     # ─── Sumário final ─────────────────────────────────────────────────────
     echo ""
