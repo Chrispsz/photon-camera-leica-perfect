@@ -4387,8 +4387,14 @@ PYEOF
 
     # P-67.2: LeicaConfig.kt — add setRuntimeLutOverride(lutId) helper
     # (null-safe: null/empty string clears the override → reset to profile default)
+    # IMPORTANT: target the INSTALLED copy in source tree ($APP_JAVA/raw/LeicaConfig.kt),
+    # NOT the patches/ source — P-1 already copied the file before P-67 runs.
     substep "P-67.2: LeicaConfig.kt — add setRuntimeLutOverride() helper"
-    local cfg_p67="$SCRIPT_DIR/patches/LeicaConfig.kt"
+    local cfg_p67="$APP_JAVA/raw/LeicaConfig.kt"
+    if [[ ! -f "$cfg_p67" ]]; then
+        # Fallback to patches/ dir (in case P-1 didn't run / different layout)
+        cfg_p67="$SCRIPT_DIR/patches/LeicaConfig.kt"
+    fi
     if [[ -f "$cfg_p67" ]]; then
         if grep -q 'fun setRuntimeLutOverride' "$cfg_p67" 2>/dev/null; then
             ok "P-67.2: already patched (idempotent)"
