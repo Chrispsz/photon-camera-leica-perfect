@@ -1,0 +1,19 @@
+# Build outputs
+apk/
+*.apk
+*.aab
+
+# Upstream clone (build script clones to /tmp, but just in case)
+photon_upstream/
+leica_build/
+
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

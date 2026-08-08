@@ -1,0 +1,724 @@
+{
+  "_meta": {
+    "_comment_version": "6.2.0 — DEFINITIVE QUALITY. MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles + 3 Capture Modes (intelligent adaptive). Tudo no maximo hardware de forma inteligente.",
+    "version": "6.2.0",
+    "name": "Xiaomi 15T Leica Perfect — v6.2 DEFINITIVE",
+    "description": "MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles + Adaptive Capture Modes",
+    "device": "Xiaomi 15T (NON-Pro)",
+    "codename": "dizi",
+    "chipset": "MediaTek Dimensity 8300-Ultra",
+    "upstream": "bjzhou/PhotonCamera v1.26.1",
+    "schema_version": 5,
+    "device_target": "Xiaomi 15T (dizi) — OV50E + S5KJN1 + S5K3J1 + OV32B"
+  },
+  "_comment_capture_modes": "v6.4.0 INTELLIGENT ADAPTIVE — 2 modos de captura. mode_max = max qualidade (lento, pra cenas estaticas/tripod/low-light, 15/9/7/11 frames, super-res 2.0x, NLM radius 7). mode_fast = disparo rapido inteligente (5/3/3/5 frames, NLM radius 3, ~0.3s latency, sustain indefinido — cobre 100% dos casos de acao/burst/casual). mode_balanced REMOVIDO (v6.4.0). RAW/DNG export DESATIVADO — usuario quer JPEG one-click.",
+  "capture_modes": {
+    "active_capture_mode": "mode_max",
+    "modes": {
+      "mode_max": {
+        "_comment": "MAX QUALITY — 15/9/7/11 frames, super res 2.0x, NLM radius 7, full pipeline. ~1.8s latency. PRA: tripod, low-light, paisagem, arquitetura, retrato posado. JPEG Q100 + HEIC Q100 + UltraHDR Q100. SEM RAW/DNG (v6.4.0 — usuario nao edita raw).",
+        "frame_count_multiplier": 1.0,
+        "super_resolution_scale": 2.0,
+        "nlm_search_radius": 7,
+        "force_rawmax": false,
+        "export_super_res_dng": false,
+        "video_bitrate_mbps": 250,
+        "thermal_throttle_at_c": 45
+      },
+      "mode_fast": {
+        "_comment": "FAST INTELLIGENT TRIGGER (DEFAULT v6.4.0) — 5/3/3/5 frames, sem super res, NLM radius 3, pipeline enxuto. ~0.3s latency, sustain indefinido. PRA: 100% dos casos — diario, street, acao, burst, criancas, pets, esporte. Melhor relacao qualidade/velocidade/termico. Substitui o antigo mode_balanced (removido). SEM RAW/DNG.",
+        "frame_count_multiplier": 0.4,
+        "super_resolution_scale": 1.0,
+        "nlm_search_radius": 3,
+        "force_rawmax": false,
+        "export_super_res_dng": false,
+        "video_bitrate_mbps": 100,
+        "thermal_throttle_at_c": 55
+      }
+    }
+  },
+  "sharpening": {
+    "enabled": true,
+    "amount": 0.09,
+    "radius": 0.9,
+    "threshold": 0.003,
+    "adaptive": true,
+    "edge_mask_strength": 2.2
+  },
+  "noise_reduction": {
+    "enabled": true,
+    "luminance": 0.92,
+    "chrominance": 0.7,
+    "detail_preserve": 0.96,
+    "adaptive": true
+  },
+  "color": {
+    "saturation_boost": 1.02,
+    "vibrance": 1.01,
+    "warmth": 1.0,
+    "leica_look": true,
+    "color_profile": "summilux"
+  },
+  "tone_mapping": {
+    "enabled": true,
+    "contrast": 1.1,
+    "highlight_rolloff": 0.35,
+    "shadow_lift": 0.1,
+    "film_like_curve": true
+  },
+  "lens_correction": {
+    "enabled": true,
+    "distortion_correction": true,
+    "vignette_correction": true,
+    "chromatic_aberration": true
+  },
+  "output": {
+    "format": "jpeg",
+    "quality": 100,
+    "max_resolution": 0,
+    "preserve_exif": true,
+    "add_watermark": false,
+    "force_no_raw": true,
+    "force_no_dng": true,
+    "force_heic_q100": true,
+    "force_ultrahdr_q100": true
+  },
+  "multi_frame": {
+    "enabled": true,
+    "frame_count": 15,
+    "super_resolution_scale": 2.0,
+    "long_frame_exposure_ev": 2.8,
+    "short_frame_exposure_divisor": 2.5,
+    "force_rawmax": true
+  },
+  "hdr": {
+    "yuv_long_ev": 2.5,
+    "yuv_short_ev": -2.0
+  },
+  "demosaic": {
+    "highlight_reconstruction_threshold": 0.95,
+    "nlm_search_radius": 7,
+    "nlm_patch_radius": 1
+  },
+  "processing": {
+    "usm_radius": 0.9,
+    "usm_threshold": 0.004,
+    "pgtm_toe_power": 1.6,
+    "pgtm_mid_power": 1.35,
+    "pgtm_shoulder_power": 1.3,
+    "pgtm_balance": 0.95,
+    "filmic_grey_source": 0.1845,
+    "filmic_default_contrast": 1.6,
+    "filmic_default_dynamic_range": 12.5,
+    "default_exposure_ev": 0.88,
+    "display_target_luma": 0.21,
+    "center_weight_sigma": 0.28,
+    "pgtm_pre_tonemap_exposure_boost_ev": 1.3,
+    "pgtm_target_dynamic_range": 120,
+    "hncs_film_curve_gain": 1.1
+  },
+  "dcp": {
+    "force_dcp_id": "builtin_dcp_Leica M8 Camera Standard",
+    "force_baseline_lut_id": "Leica_M9_STD",
+    "dcp_ratio_warm": 0.52,
+    "dcp_ratio_cool": 1.62,
+    "force_heic_export": true,
+    "force_frame_id": "leica"
+  },
+  "advanced": {
+    "mertens_contrast_weight": 1.5,
+    "mertens_saturation_weight": 1.05,
+    "mertens_exposure_weight": 1.0,
+    "vignette_grid_max_h": 128,
+    "vignette_grid_max_v": 96,
+    "export_dng_with_raw": true,
+    "export_super_res_dng": true,
+    "gainmap_jpeg_quality": 100,
+    "ultra_hdr_quality": 100,
+    "heic_quality": 100,
+    "software_branding": "LeicaCamera",
+    "force_high_quality_isp": true
+  },
+  "sensors": {
+    "_comment_main": "OV50E main — 50MP, 1/1.31, 1.2um QuadBayer (2.4um effective), f/1.7. 14-bit ADC native (RAW16). Black 1024 (14-bit pedestal), White 16383 (2^14-1 = TRUE 14-bit MAX).",
+    "main_black_level": 1024,
+    "main_white_level": 16383,
+    "main_cfa_mode": "4x4_RGGB",
+    "uw_black_level": 64,
+    "uw_white_level": 1023,
+    "uw_cfa_mode": "2x2_GBRG",
+    "tele_black_level": 64,
+    "tele_white_level": 1023,
+    "tele_cfa_mode": "2x2_BGGR",
+    "front_black_level": 64,
+    "front_white_level": 1023,
+    "front_cfa_mode": "2x2_BGGR",
+    "mtk_raw_bpp": 14
+  },
+  "per_lens": {
+    "main": {
+      "_comment": "OV50E main — BEAT GCam. frame_count=15 (vs GCam 11), ev_comp=0.15 (AgX shoulder protege). sharpening 0.50 (optically sharp). luma_nr 1.0 (15 frames limpo).",
+      "frame_count": 15,
+      "ev_comp": 0.15,
+      "gamma_preset": -1,
+      "awb_mode": -1,
+      "noise_model_preset": -1,
+      "ccm_preset": -1,
+      "gamma_contrast": 1.1,
+      "gamma_shoulder": 0.35,
+      "gamma_shadow_lift": 0.1,
+      "ccm_ratio_warm": 0.52,
+      "ccm_ratio_cool": 1.62,
+      "sharpening_multiplier": 0.5,
+      "luma_nr_multiplier": 1.0,
+      "chroma_nr_multiplier": 1.1,
+      "tint_shift": -14,
+      "highlight_compression_ev": -0.2,
+      "saturation_red": 0.93,
+      "saturation_green": 0.88,
+      "saturation_blue": 0.92,
+      "edge_mode": 2,
+      "camera2_noise_reduction_mode": 2,
+      "shading_mode": 2,
+      "hot_pixel_mode": 2,
+      "tonemap_mode": 3
+    },
+    "uw": {
+      "_comment": "S5KJN1 UW — BEAT GCam. frame_count=9 (vs GCam 7). sharpening 0.70 (sensor menor softer). luma_nr 1.6 (0.64um ruidoso).",
+      "frame_count": 9,
+      "ev_comp": 0.12,
+      "gamma_preset": -1,
+      "awb_mode": -1,
+      "noise_model_preset": -1,
+      "ccm_preset": -1,
+      "gamma_contrast": 1.15,
+      "gamma_shoulder": 0.32,
+      "gamma_shadow_lift": 0.12,
+      "ccm_ratio_warm": 0.5,
+      "ccm_ratio_cool": 1.6,
+      "sharpening_multiplier": 0.7,
+      "luma_nr_multiplier": 1.6,
+      "chroma_nr_multiplier": 1.4,
+      "tint_shift": -12,
+      "highlight_compression_ev": -0.18,
+      "saturation_red": 0.95,
+      "saturation_green": 0.9,
+      "saturation_blue": 0.94,
+      "edge_mode": 1,
+      "camera2_noise_reduction_mode": 1,
+      "shading_mode": 1,
+      "hot_pixel_mode": 1,
+      "tonemap_mode": 0
+    },
+    "tele": {
+      "_comment": "S5K3J1 tele — BEAT GCam. frame_count=7 (vs GCam 5). OIS+gyro = mais frames. sharpening 0.55 (optical zoom sharp).",
+      "frame_count": 7,
+      "ev_comp": 0.1,
+      "gamma_preset": -1,
+      "awb_mode": -1,
+      "noise_model_preset": -1,
+      "ccm_preset": -1,
+      "gamma_contrast": 1.18,
+      "gamma_shoulder": 0.38,
+      "gamma_shadow_lift": 0.08,
+      "ccm_ratio_warm": 0.54,
+      "ccm_ratio_cool": 1.64,
+      "sharpening_multiplier": 0.55,
+      "luma_nr_multiplier": 1.2,
+      "chroma_nr_multiplier": 1.1,
+      "tint_shift": -11,
+      "highlight_compression_ev": -0.15,
+      "saturation_red": 0.94,
+      "saturation_green": 0.89,
+      "saturation_blue": 0.91,
+      "edge_mode": 2,
+      "camera2_noise_reduction_mode": 2,
+      "shading_mode": 2,
+      "hot_pixel_mode": 2,
+      "tonemap_mode": 3
+    },
+    "front": {
+      "_comment": "OV32B front — BEAT GCam. frame_count=11 (vs GCam 7). selfie estavel. luma_nr 1.5 (0.61um noisiest). beauty OFF.",
+      "frame_count": 11,
+      "ev_comp": 0.2,
+      "gamma_preset": -1,
+      "awb_mode": -1,
+      "noise_model_preset": -1,
+      "ccm_preset": -1,
+      "gamma_contrast": 1.08,
+      "gamma_shoulder": 0.3,
+      "gamma_shadow_lift": 0.15,
+      "ccm_ratio_warm": 0.48,
+      "ccm_ratio_cool": 1.58,
+      "sharpening_multiplier": 0.65,
+      "luma_nr_multiplier": 1.5,
+      "chroma_nr_multiplier": 1.3,
+      "tint_shift": -8,
+      "highlight_compression_ev": -0.22,
+      "saturation_red": 0.96,
+      "saturation_green": 0.92,
+      "saturation_blue": 0.94,
+      "skin_warmth_k": 150,
+      "beauty_filter": false,
+      "edge_mode": 1,
+      "camera2_noise_reduction_mode": 1,
+      "shading_mode": 1,
+      "hot_pixel_mode": 1,
+      "tonemap_mode": 0
+    }
+  },
+  "color_science": {
+    "tint_shift": -12,
+    "saturation_red_pct": -5,
+    "saturation_green_pct": -10,
+    "saturation_blue_pct": -7,
+    "highlight_compression_ev": -0.15,
+    "skin_tone_protection": true,
+    "per_channel_tint_red": 0,
+    "per_channel_tint_green": 0,
+    "per_channel_tint_blue": 0
+  },
+  "video": {
+    "_comment": "MAX VIDEO — HEVC 250Mbps (mode_max) / 120Mbps (balanced) / 80Mbps (fast). B-frames=2, log, 4K30, HDR10, AAC 256k.",
+    "codec": "hevc",
+    "bitrate_mbps": 250,
+    "max_b_frames": 2,
+    "color_profile": "log",
+    "default_resolution": "2160p",
+    "default_fps": 30,
+    "hdr_video": true,
+    "audio_codec": "aac",
+    "audio_bitrate_kbps": 256,
+    "audio_sample_rate": 48000,
+    "i_frame_interval_sec": 1,
+    "rate_control": "vbr"
+  },
+  "noise_model_fallback": {
+    "enabled": true,
+    "main": {
+      "a": 2.8e-07,
+      "b": 9.2e-06,
+      "c": 4.2e-06,
+      "d": 6.1e-08
+    },
+    "uw": {
+      "a": 7.2e-07,
+      "b": 2.4e-05,
+      "c": 1.1e-05,
+      "d": 1.6e-07
+    },
+    "tele": {
+      "a": 5e-07,
+      "b": 1.6e-05,
+      "c": 7.6e-06,
+      "d": 1.1e-07
+    },
+    "front": {
+      "a": 9.5e-07,
+      "b": 3.2e-05,
+      "c": 1.4e-05,
+      "d": 2.1e-07
+    }
+  },
+  "creative_profiles": {
+    "active_profile": "leica_perfect_signature",
+    "profiles": {
+      "leica_authentic": {
+        "lut_id": "leica_m9",
+        "dcp_id": "builtin_dcp_Leica M8 Camera Standard",
+        "frame_id": "leica",
+        "tone_contrast_boost": 0.0,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 1.0,
+        "recommended_for": [
+          "diario",
+          "street",
+          "documental",
+          "arquitetura",
+          "produto"
+        ],
+        "best_lens": "main"
+      },
+      "leica_monochrome": {
+        "lut_id": "monochrome",
+        "dcp_id": "builtin_dcp_Leica M8 Camera Standard",
+        "frame_id": "leica",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 0.0,
+        "recommended_for": [
+          "street_pb",
+          "retrato_dramatico",
+          "arquitetura_minimalista"
+        ],
+        "best_lens": "main"
+      },
+      "hasselblad_natural": {
+        "lut_id": "Hasselblad",
+        "dcp_id": "builtin_dcp_Hasselblad X1D-50 Adobe Standard",
+        "frame_id": "hasselblad",
+        "tone_contrast_boost": 0.0,
+        "tone_warmth_shift_k": -100,
+        "saturation_multiplier": 0.96,
+        "recommended_for": [
+          "retrato_premium",
+          "moda",
+          "produto_luxo",
+          "estudio"
+        ],
+        "best_lens": "main"
+      },
+      "hasselblad_portrait": {
+        "lut_id": "Hasselblad_portrait",
+        "dcp_id": "builtin_dcp_Hasselblad X1D-50 Adobe Standard",
+        "frame_id": "hasselblad",
+        "tone_contrast_boost": -0.04,
+        "tone_warmth_shift_k": 200,
+        "saturation_multiplier": 0.94,
+        "recommended_for": [
+          "retrato_estudio",
+          "casamento",
+          "familia",
+          "selfie_premium"
+        ],
+        "best_lens": "front"
+      },
+      "fuji_classic_chrome": {
+        "lut_id": "cc",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Negative Film",
+        "frame_id": "kodak_portra_400",
+        "tone_contrast_boost": 0.1,
+        "tone_warmth_shift_k": -150,
+        "saturation_multiplier": 0.88,
+        "recommended_for": [
+          "street_vintage",
+          "documental",
+          "urbano",
+          "nostalgico"
+        ],
+        "best_lens": "main"
+      },
+      "fuji_classic_neg": {
+        "lut_id": "nc",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Negative Film",
+        "frame_id": "kodak_portra_400",
+        "tone_contrast_boost": 0.06,
+        "tone_warmth_shift_k": 300,
+        "saturation_multiplier": 0.92,
+        "recommended_for": [
+          "retrato_vintage",
+          "golden_hour",
+          "filmico",
+          "lifestyle",
+          "viagem"
+        ],
+        "best_lens": "main"
+      },
+      "fuji_astia": {
+        "lut_id": "astia",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Positive Film",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": -0.02,
+        "tone_warmth_shift_k": 100,
+        "saturation_multiplier": 0.95,
+        "recommended_for": [
+          "retrato_feminino",
+          "beauty",
+          "pele_delicada",
+          "flores"
+        ],
+        "best_lens": "main"
+      },
+      "fuji_velvia_vivid": {
+        "lut_id": "velvia50.33",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.12,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 1.18,
+        "recommended_for": [
+          "paisagem",
+          "natureza",
+          "flores",
+          "ceu_dramatico"
+        ],
+        "best_lens": "uw"
+      },
+      "cinestill_800t": {
+        "lut_id": "film_cinestill_800t",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": -400,
+        "saturation_multiplier": 1.05,
+        "recommended_for": [
+          "noite_urbana",
+          "neon",
+          "cinema_stills",
+          "long_exposure"
+        ],
+        "best_lens": "main"
+      },
+      "kodak_ultramax_400": {
+        "lut_id": "film_kodak_ultramax_400",
+        "dcp_id": "builtin_dcp_Canon EOS R6 Mark III Camera Portrait",
+        "frame_id": "kodak_portra_400",
+        "tone_contrast_boost": 0.04,
+        "tone_warmth_shift_k": 250,
+        "saturation_multiplier": 1.06,
+        "recommended_for": [
+          "viagem",
+          "casual_daytime",
+          "familia",
+          "ferias"
+        ],
+        "best_lens": "main"
+      },
+      "kodak_e100": {
+        "lut_id": "e100",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.06,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 1.04,
+        "recommended_for": [
+          "produto",
+          "ciencia",
+          "macro",
+          "cor_precisa"
+        ],
+        "best_lens": "tele"
+      },
+      "fuji_superia_1600": {
+        "lut_id": "film_superia_1600",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Negative Film",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.02,
+        "tone_warmth_shift_k": 150,
+        "saturation_multiplier": 0.94,
+        "recommended_for": [
+          "low_light_mood",
+          "indoor_film",
+          "grao_estetico"
+        ],
+        "best_lens": "main"
+      },
+      "fuji_natura_1600": {
+        "lut_id": "film_natura_1600",
+        "dcp_id": "builtin_dcp_Canon EOS R6 Mark III Camera Portrait",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.0,
+        "tone_warmth_shift_k": 200,
+        "saturation_multiplier": 0.96,
+        "recommended_for": [
+          "low_light_premium",
+          "evento_noturno",
+          "jantar"
+        ],
+        "best_lens": "main"
+      },
+      "ricoh_negative": {
+        "lut_id": "ricoh_negative",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Negative Film",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": -200,
+        "saturation_multiplier": 0.93,
+        "recommended_for": [
+          "street_purista",
+          "jornalismo",
+          "documental_urbano"
+        ],
+        "best_lens": "main"
+      },
+      "ricoh_positive": {
+        "lut_id": "ricoh_positive",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Positive Film",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.04,
+        "tone_warmth_shift_k": 100,
+        "saturation_multiplier": 1.03,
+        "recommended_for": [
+          "natureza_urbana",
+          "vegetacao",
+          "primavera_urbana"
+        ],
+        "best_lens": "main"
+      },
+      "ricoh_gr2_posi": {
+        "lut_id": "ricoh_gr2_positive",
+        "dcp_id": "builtin_dcp_RICOH GR IV Camera Positive Film",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.02,
+        "tone_warmth_shift_k": 250,
+        "saturation_multiplier": 1.0,
+        "recommended_for": [
+          "street_vintage_quente",
+          "gr2_cult",
+          "retrato_casual"
+        ],
+        "best_lens": "main"
+      },
+      "pentax_harubeni": {
+        "lut_id": "pentax_harubeni",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.04,
+        "tone_warmth_shift_k": 150,
+        "saturation_multiplier": 1.05,
+        "recommended_for": [
+          "primavera",
+          "flores_cerejeira",
+          "sakura"
+        ],
+        "best_lens": "uw"
+      },
+      "pentax_katen": {
+        "lut_id": "pentax_katen",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.06,
+        "tone_warmth_shift_k": 50,
+        "saturation_multiplier": 1.08,
+        "recommended_for": [
+          "verao",
+          "praia",
+          "piscina",
+          "vegetacao"
+        ],
+        "best_lens": "uw"
+      },
+      "pentax_kyushu": {
+        "lut_id": "pentax_kyushu",
+        "dcp_id": "builtin_dcp_Canon EOS R6 Mark III Camera Portrait",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.05,
+        "tone_warmth_shift_k": 350,
+        "saturation_multiplier": 1.03,
+        "recommended_for": [
+          "outono",
+          "folhas_douradas",
+          "vinhedos"
+        ],
+        "best_lens": "tele"
+      },
+      "pentax_fuyuno": {
+        "lut_id": "pentax_fuyuno",
+        "dcp_id": "builtin_dcp_Hasselblad X1D-50 Adobe Standard",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.02,
+        "tone_warmth_shift_k": -300,
+        "saturation_multiplier": 0.95,
+        "recommended_for": [
+          "inverno",
+          "neve",
+          "cenas_frias",
+          "minimalista"
+        ],
+        "best_lens": "main"
+      },
+      "lumix_vivid": {
+        "lut_id": "lumix_vivid",
+        "dcp_id": "builtin_dcp_Panasonic DC-S9 Adobe Standard",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 1.12,
+        "recommended_for": [
+          "vlog",
+          "social_media",
+          "content_creation",
+          "youtube"
+        ],
+        "best_lens": "main"
+      },
+      "lumix_portrait": {
+        "lut_id": "lumix_portrait",
+        "dcp_id": "builtin_dcp_Panasonic DC-S9 Adobe Standard",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": -0.02,
+        "tone_warmth_shift_k": 150,
+        "saturation_multiplier": 0.97,
+        "recommended_for": [
+          "retrato_moderno",
+          "lifestyle",
+          "content_pessoas"
+        ],
+        "best_lens": "front"
+      },
+      "lumix_std": {
+        "lut_id": "lumix_std",
+        "dcp_id": "builtin_dcp_Panasonic DC-S9 Adobe Standard",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.0,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 1.0,
+        "recommended_for": [
+          "neutro_moderno",
+          "baseline_alternativo"
+        ],
+        "best_lens": "main"
+      },
+      "ricoh_green": {
+        "lut_id": "ricoh_green",
+        "dcp_id": "builtin_dcp_Sony ILCE-7M4 Camera ST",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.1,
+        "tone_warmth_shift_k": -250,
+        "saturation_multiplier": 1.02,
+        "recommended_for": [
+          "cinema_noir",
+          "thriller",
+          "mood_dramatico"
+        ],
+        "best_lens": "main"
+      },
+      "ricoh_yellow": {
+        "lut_id": "ricoh_yellow",
+        "dcp_id": "builtin_dcp_Canon EOS R6 Mark III Camera Portrait",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": 500,
+        "saturation_multiplier": 1.04,
+        "recommended_for": [
+          "deserto",
+          "mood_mexico",
+          "western",
+          "golden_hour_extremo"
+        ],
+        "best_lens": "tele"
+      },
+      "rollei_cn200": {
+        "lut_id": "film_rollei_cn200",
+        "dcp_id": "builtin_dcp_Leica M8 Camera Standard",
+        "frame_id": "03_no_frame",
+        "tone_contrast_boost": 0.12,
+        "tone_warmth_shift_k": 0,
+        "saturation_multiplier": 0.0,
+        "recommended_for": [
+          "pb_vintage",
+          "retrato_pb_classico",
+          "street_pb_film"
+        ],
+        "best_lens": "main"
+      },
+      "leica_perfect_signature": {
+        "lut_id": "leica_m9",
+        "dcp_id": "builtin_dcp_Leica M8 Camera Standard",
+        "frame_id": "leica",
+        "tone_contrast_boost": 0.08,
+        "tone_warmth_shift_k": 150,
+        "saturation_multiplier": 1.03,
+        "recommended_for": [
+          "diario",
+          "street",
+          "retrato",
+          "documental",
+          "golden hour",
+          "arquitetura"
+        ],
+        "best_lens": "main"
+      }
+    }
+  }
+}

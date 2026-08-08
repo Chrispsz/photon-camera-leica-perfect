@@ -1,0 +1,118 @@
+name: Build & Release APK
+
+# Builds the Photon Camera fork (Leica Perfect v6.4.0-fix10) from upstream
+# bjzhou/PhotonCamera 1.26.1 + 67 surgical patches, then publishes the APK
+# as a rolling GitHub Release (tag "latest") for fast CDN-backed download.
+#
+# Stable download URL (always the newest green build):
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.0-fix10-debug.apk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout fork (patches + config + build script)
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platforms;android-35
+            build-tools;35.0.0
+            cmake;3.22.1
+            ndk;27.2.12479018
+
+      - name: Show environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          java -version
+          git --version
+          nproc
+          free -h
+
+      - name: Build (clone upstream + patch + gradle assembleDefaultDebug)
+        run: |
+          chmod +x build-archlinux.sh
+          ANDROID_HOME="$ANDROID_SDK_ROOT" ./build-archlinux.sh all
+
+      - name: Locate built APK
+        id: apk
+        run: |
+          set -e
+          APK=$(find apk -name '*.apk' -type f | head -1)
+          if [ -z "$APK" ]; then echo "No APK found"; exit 1; fi
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$APK")" >> "$GITHUB_OUTPUT"
+          ls -la apk/
+          echo "--- APK size ---"
+          du -h "$APK"
+
+      - name: Upload build artifact (90-day)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LeicaPerfect-v6.4.0-fix10-debug-apk
+          path: apk/*.apk
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Create / update rolling Release (tag: latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Leica Perfect v6.4.0-fix10 (mode_max)
+          body: |
+            # Leica Perfect v6.4.0-fix10
+
+            Photon Camera fork — built from upstream `bjzhou/PhotonCamera` 1.26.1
+            + 67 surgical patches (Cron 18 PERFECT-ULTIMATE).
+
+            ## Defaults
+            - **Capture mode: `mode_max`** (max quality — 15/9/7/11 frames, super-res 2.0x, NLM radius 7, JPEG/HEIC/UltraHDR Q100)
+            - Optimized for **Xiaomi 15T** (OV50E + S5KJN1 + S5K3J1 + OV32B)
+            - RAW/DNG export disabled (JPEG one-click)
+
+            ## Install
+            Download the `.apk` asset below and install on your device
+            (enable "Install unknown apps" for your browser/file manager).
+
+            ---
+            Build commit: ${{ github.sha }}
+            Built at: ${{ github.run_id }}
+          files: apk/*.apk
+          fail_on_unmatched_files: true
+          make_latest: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-failed
+          path: |
+            /tmp/photon_upstream/**/*.log
+            /tmp/leica_build/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
