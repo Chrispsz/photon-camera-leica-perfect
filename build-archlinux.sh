@@ -5710,6 +5710,40 @@ GRADLEPROPS
 
     ok "gradle.properties escrito: heap=${heap_gb}GB metaspace=${metaspace_gb}GB workers=${workers} flavor=${flavor}"
 
+    # v6.4.7-fix1: Ensure debug.keystore exists for release signing (P-74 leicaReleaseSigning)
+    # On fresh CI runners (and some local setups), ~/.android/debug.keystore doesn't exist.
+    # The Android SDK only auto-creates it for debug builds (assembleDebug) — release builds
+    # with a custom signingConfig require it to pre-exist. Without this, gradle fails at
+    # validateSigningDefaultRelease with "Keystore file not found".
+    # v6.4.6 (P-74) introduced release signing but was never actually built (workflow
+    # concurrency skip), so this latent bug only surfaced on the v6.4.7 build.
+    substep "Ensure debug.keystore exists for release signing (v6.4.7-fix1)"
+    local keystore_dir="$HOME/.android"
+    local keystore_file="$keystore_dir/debug.keystore"
+    if [[ -f "$keystore_file" ]]; then
+        ok "debug.keystore already exists at $keystore_file (release signing ready)"
+    else
+        mkdir -p "$keystore_dir"
+        if command -v keytool &>/dev/null; then
+            keytool -genkey -v \
+                -keystore "$keystore_file" \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+            if [[ -f "$keystore_file" ]]; then
+                ok "debug.keystore created at $keystore_file (standard debug credentials — release signing ready)"
+            else
+                warn "debug.keystore creation failed — release build may fail at validateSigningDefaultRelease"
+            fi
+        else
+            warn "keytool not found in PATH — cannot create debug.keystore. Release build may fail at validateSigningDefaultRelease"
+        fi
+    fi
+
     substep "Limpar builds anteriores"
     if [[ -f "./gradlew" ]]; then
         chmod +x ./gradlew
