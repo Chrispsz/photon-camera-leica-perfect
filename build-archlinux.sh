@@ -5658,12 +5658,18 @@ cmd_build() {
     # flavors pra Play Store/Samsung Store/Meitu Store — desnecessários aqui.
     # Se algum dia precisar de outro flavor: BUILD_FLAVOR=google ./build-archlinux.sh build
     local flavor="${BUILD_FLAVOR:-default}"
-    local gradle_task="assembleRelease"
+    # v6.4.7-fix2: Revert to DEBUG build. Release build (P-74 R8 + resource shrinking +
+    # custom signing) produced APKs that fail to install with "There was a problem parsing
+    # the package" on Xiaomi 15T. Root cause: combination of R8 stripping + resource
+    # shrinking + release signing with non-upstream keystore. Debug build uses upstream's
+    # app/debug.keystore (checked into repo), AGP auto-signs with v1+v2+v3, no R8, no
+    # resource shrinking → guaranteed installable. Trade-off: APK ~138MB (vs ~88MB release).
+    local gradle_task="assembleDebug"
     local gradle_parallel=false
     # Capitaliza: default → Default
     local flavor_cap="$(echo "$flavor" | sed 's/^./\U&/')"
-    gradle_task="assemble${flavor_cap}Release"
-    info "BUILD_FLAVOR=$flavor → task :app:${gradle_task} (build único, mais rápido)"
+    gradle_task="assemble${flavor_cap}Debug"
+    info "BUILD_FLAVOR=$flavor → task :app:${gradle_task} (DEBUG build — installable, no R8)"
 
     # Conta threads da CPU pra workers.max
     local cpu_threads=$(nproc 2>/dev/null || echo 4)
@@ -5710,39 +5716,10 @@ GRADLEPROPS
 
     ok "gradle.properties escrito: heap=${heap_gb}GB metaspace=${metaspace_gb}GB workers=${workers} flavor=${flavor}"
 
-    # v6.4.7-fix1: Ensure debug.keystore exists for release signing (P-74 leicaReleaseSigning)
-    # On fresh CI runners (and some local setups), ~/.android/debug.keystore doesn't exist.
-    # The Android SDK only auto-creates it for debug builds (assembleDebug) — release builds
-    # with a custom signingConfig require it to pre-exist. Without this, gradle fails at
-    # validateSigningDefaultRelease with "Keystore file not found".
-    # v6.4.6 (P-74) introduced release signing but was never actually built (workflow
-    # concurrency skip), so this latent bug only surfaced on the v6.4.7 build.
-    substep "Ensure debug.keystore exists for release signing (v6.4.7-fix1)"
-    local keystore_dir="$HOME/.android"
-    local keystore_file="$keystore_dir/debug.keystore"
-    if [[ -f "$keystore_file" ]]; then
-        ok "debug.keystore already exists at $keystore_file (release signing ready)"
-    else
-        mkdir -p "$keystore_dir"
-        if command -v keytool &>/dev/null; then
-            keytool -genkey -v \
-                -keystore "$keystore_file" \
-                -storepass android \
-                -alias androiddebugkey \
-                -keypass android \
-                -keyalg RSA \
-                -keysize 2048 \
-                -validity 10000 \
-                -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
-            if [[ -f "$keystore_file" ]]; then
-                ok "debug.keystore created at $keystore_file (standard debug credentials — release signing ready)"
-            else
-                warn "debug.keystore creation failed — release build may fail at validateSigningDefaultRelease"
-            fi
-        else
-            warn "keytool not found in PATH — cannot create debug.keystore. Release build may fail at validateSigningDefaultRelease"
-        fi
-    fi
+    # v6.4.7-fix2: debug build uses upstream's app/debug.keystore (checked into repo).
+    # No keystore creation needed — upstream build.gradle.kts debug signingConfig
+    # references file("debug.keystore") = app/debug.keystore.
+    # AGP auto-signs debug builds with v1+v2+v3 → always installable.
 
     substep "Limpar builds anteriores"
     if [[ -f "./gradlew" ]]; then
@@ -5772,8 +5749,8 @@ GRADLEPROPS
 
     substep "Copiar APK para $APK_OUTPUT"
     # PhotonCamera usa product flavors (default/google/meitu/samsung).
-    # v6.4.6 P-74: APK agora é RELEASE (não debug). Está em apk/<flavor>/release/app-<flavor>-release.apk
-    # Procuramos em ordem de preferência: default → google → meitu → samsung → qualquer *-release.apk
+    # v6.4.7-fix2: APK agora é DEBUG (não release). Está em apk/<flavor>/debug/app-<flavor>-debug.apk
+    # Procuramos em ordem de preferência: default → google → meitu → samsung → qualquer *-debug.apk
     local apk_root="$SOURCE_DIR/app/build/outputs/apk"
     local apk_path=""
     local apk_flavor=""
@@ -5783,7 +5760,7 @@ GRADLEPROPS
     if [[ -d "$apk_root" ]]; then
         while IFS= read -r line; do
             apk_all+=("$line")
-        done < <(find "$apk_root" -name "*-release.apk" -type f 2>/dev/null)
+        done < <(find "$apk_root" -name "*-debug.apk" -type f 2>/dev/null)
     fi
 
     # Mostra tudo que encontrou (diagnóstico)
@@ -5797,7 +5774,7 @@ GRADLEPROPS
     # Preferência: default (Xiaomi 15T não precisa de google/meitu/samsung)
     for flavor in default google meitu samsung; do
         for a in "${apk_all[@]}"; do
-            if [[ "$a" == *"/${flavor}/release/app-${flavor}-release.apk" ]]; then
+            if [[ "$a" == *"/${flavor}/debug/app-${flavor}-debug.apk" ]]; then
                 apk_path="$a"
                 apk_flavor="$flavor"
                 break 2
@@ -5812,7 +5789,7 @@ GRADLEPROPS
     fi
 
     if [[ -n "$apk_path" && -f "$apk_path" ]]; then
-        local out_name="LeicaPerfect-v${FORK_VERSION}-release.apk"
+        local out_name="LeicaPerfect-v${FORK_VERSION}-debug.apk"
         cp -f "$apk_path" "$APK_OUTPUT/$out_name"
         ok "APK copiado (flavor: ${apk_flavor}): $APK_OUTPUT/$out_name"
         info "Tamanho: $(du -h "$APK_OUTPUT/$out_name" | awk '{print $1}')"
@@ -5855,8 +5832,8 @@ GRADLEPROPS
     fi
 
     section "BUILD COMPLETO"
-    info "APK: $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-release.apk"
-    info "Instale: adb install -r $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-release.apk"
+    info "APK: $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-debug.apk"
+    info "Instale: adb install -r $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-debug.apk"
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
