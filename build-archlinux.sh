@@ -5,6 +5,7 @@
 # v6.4.0 (Cron 8): P-63 LUT picker override (fixes stuck-on-m9-ccd) + P-64 5 best LUTs in mod menu
 # v6.4.0 (Cron 9): P-65 one-click JPEG max optimization (forceNoRaw + ONE-CLICK MAX button)
 # v6.4.7 (Cron 16): P-75 natural baseline — LUT "none" no perfil ativo + fix latent force_baseline_lut_id bug
+# v6.4.8 (Cron 17): P-76 night precision — revert P-75 LUT leica_m9 (flat+noisy fix) + AgX less aggressive + NR luma up
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # DEFINITIVE QUALITY — MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles
@@ -30,6 +31,7 @@
 #   Tier 21 (P-73):        v6.4.6 mode_fast removed (single mode_max)
 #   Tier 22 (P-74):        v6.4.6 Release APK + R8 + arm64-v8a only
 #   Tier 23 (P-75):        v6.4.7 natural baseline (LUT "none" no perfil ativo + fix latent force_baseline_lut_id)
+#   Tier 24 (P-76):        v6.4.8 night precision (revert LUT leica_m9 + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96)
 #
 # v6.3.5 (Cron 2 fixes): P-52a/b/c paths corrected, P-31 targeted L6801 only,
 #   P-32a bitrate pattern P5→P1, P-53a/b/c runtime NLM radius (C2/C3/C4 from
@@ -79,7 +81,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.7"
+readonly FORK_VERSION="6.4.8"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -218,7 +220,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 59 patches cirúrgicos (75 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 96 substeps cirúrgicos (65 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 99 substeps cirúrgicos (66 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5522,6 +5524,70 @@ GRADLE_KT_P74
     echo ""
 
     # ───────────────────────────────────────────────────────────────────────
+    # Tier 24 (P-76) — v6.4.8: Night precision — revert P-75 LUT + AgX less aggressive + NR luma up
+    # ───────────────────────────────────────────────────────────────────────
+    section "P-76: Night precision (revert P-75 LUT + AgX softer + NR luma up) (v6.4.8)"
+    local p76_count=0
+
+    local json_cfg_p76="$SCRIPT_DIR/config/leica_perfect.json"
+    if [[ -f "$json_cfg_p76" ]]; then
+        # P-76.1: active profile lut_id must be "leica_m9" (revert P-75 — flat+noisy fix)
+        local p76_lut=$(grep -A 3 '"leica_perfect_signature"' "$json_cfg_p76" | grep '"lut_id"' | head -1 | sed -E 's/.*"lut_id"\s*:\s*"([^"]+)".*/\1/')
+        if [[ "$p76_lut" == "leica_m9" ]]; then
+            ok "P-76.1: active profile lut_id=\"leica_m9\" confirmed (revert P-75 — Leica M9 CCD color science + contrast + noise masking restored)"
+            ((++p76_count))
+        else
+            warn "P-76.1: expected lut_id=\"leica_m9\", got \"$p76_lut\" — P-75 NOT reverted"
+        fi
+
+        # P-76.2: force_baseline_lut_id must be "leica_m9" (case-sensitive correct ID — latent bug stays FIXED)
+        local p76_fbl=$(grep '"force_baseline_lut_id"' "$json_cfg_p76" | head -1 | sed -E 's/.*"force_baseline_lut_id"\s*:\s*"([^"]+)".*/\1/')
+        if [[ "$p76_fbl" == "leica_m9" ]]; then
+            ok "P-76.2: force_baseline_lut_id=\"leica_m9\" confirmed (latent bug stays FIXED with case-sensitive correct ID — was \"Leica_M9_STD\" that never resolved in LutManager)"
+            ((++p76_count))
+        else
+            warn "P-76.2: expected force_baseline_lut_id=\"leica_m9\", got \"$p76_fbl\" — latent bug may regress"
+        fi
+
+        # P-76.3: tone_mapping.shadow_lift must be 0.05 (was 0.10 — stop revealing sensor noise in shadows)
+        local p76_sl=$(python3 -c "import json; print(json.load(open('$json_cfg_p76'))['tone_mapping']['shadow_lift'])" 2>/dev/null)
+        if [[ "$p76_sl" == "0.05" ]]; then
+            ok "P-76.3: tone_mapping.shadow_lift=0.05 confirmed (was 0.10 — -50% shadow lift, less sensor noise reveal)"
+            ((++p76_count))
+        else
+            warn "P-76.3: expected shadow_lift=0.05, got \"$p76_sl\" — AgX still too aggressive"
+        fi
+
+        # P-76.4: processing.pgtm_pre_tonemap_exposure_boost_ev must be 0.8 (was 1.3 — -38% pre-tonemap boost)
+        local p76_pgtm=$(python3 -c "import json; print(json.load(open('$json_cfg_p76'))['processing']['pgtm_pre_tonemap_exposure_boost_ev'])" 2>/dev/null)
+        if [[ "$p76_pgtm" == "0.8" ]]; then
+            ok "P-76.4: pgtm_pre_tonemap_exposure_boost_ev=0.8 confirmed (was 1.3 — -38% pre-tonemap boost, ISO 1500-3000 noise no longer amplified ~5x)"
+            ((++p76_count))
+        else
+            warn "P-76.4: expected pgtm_pre_tonemap_exposure_boost_ev=0.8, got \"$p76_pgtm\" — pre-tonemap boost still too high"
+        fi
+
+        # P-76.5: noise_reduction.luminance must be 0.96 (was 0.92 — +4% luma NR compensates mode_max ISO 1500-3000)
+        local p76_nrl=$(python3 -c "import json; print(json.load(open('$json_cfg_p76'))['noise_reduction']['luminance'])" 2>/dev/null)
+        if [[ "$p76_nrl" == "0.96" ]]; then
+            ok "P-76.5: noise_reduction.luminance=0.96 confirmed (was 0.92 — +4% luma NR, compensates night ISO without plasticizing)"
+            ((++p76_count))
+        else
+            warn "P-76.5: expected noise_reduction.luminance=0.96, got \"$p76_nrl\" — luma NR not boosted"
+        fi
+    else
+        warn "P-76: leica_perfect.json not found at $json_cfg_p76"
+    fi
+
+    ok "P-76: Night precision applied (v6.4.8) — sub-patches: $p76_count/5"
+    if [[ "$p76_count" -ge 4 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
     section "SUMÁRIO — Leica Perfect v$FORK_VERSION patches"
@@ -5532,7 +5598,7 @@ GRADLE_KT_P74
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "76 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-75 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix)"
+        ok "77 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-76 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
@@ -5545,11 +5611,12 @@ GRADLE_KT_P74
     # Footer
     cat <<'FOOTER'
 ═══════════════════════════════════════════════════════════════
-  v6.4.7 — 76 surgical sed patches (P-75 added): natural baseline (LUT "none" no perfil ativo) + fix latent force_baseline_lut_id bug (era "Leica_M9_STD" que nunca resolvia em LutManager case-sensitive)
+  v6.4.8 — 77 surgical sed patches (P-76 added): night precision — revert P-75 LUT leica_m9 (flat+noisy fix) + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96
   Cron 14: P-72 RAW on-demand (force_no_raw/dng flipped false) — RAW available via gear toggle
   Cron 15: P-73 mode_fast removed (user: "não esquenta, mode_fast só atrapalha") + P-74 Release APK + R8 + arm64-v8a filter
   Cron 16: P-75 natural baseline — LUT "none" no perfil leica_perfect_signature + fix latent force_baseline_lut_id (era "Leica_M9_STD")
-  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand + natural baseline + LUT on-demand)
+  Cron 17: P-76 night precision — revert LUT leica_m9 (flat+noisy) + AgX less aggressive (shadow_lift 0.05 + pgtm boost 0.8) + NR luma 0.96
+  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand + Leica M9 baseline + LUT on-demand + night precision)
 ═══════════════════════════════════════════════════════════════
 FOOTER
 }

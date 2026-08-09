@@ -1,6 +1,6 @@
 name: Build & Release APK
 
-# Builds the Photon Camera fork (Leica Perfect v6.4.7 ABSOLUTE) from upstream
+# Builds the Photon Camera fork (Leica Perfect v6.4.8 ABSOLUTE) from upstream
 # bjzhou/PhotonCamera 1.26.1 + surgical patches, then publishes the APK as a rolling
 # GitHub Release (tag "latest") for fast CDN-backed download.
 #
@@ -8,10 +8,11 @@ name: Build & Release APK
 # ccache enabled for faster native C/C++ recompilation.
 # v6.4.6: Release build (R8 + arm64-v8a only — ~50% smaller APK).
 # v6.4.7: Natural baseline (LUT "none" no perfil ativo + fix latent force_baseline_lut_id).
+# v6.4.8: Night precision (revert P-75 LUT leica_m9 + AgX softer + NR luma up — flat+noisy fix).
 # APK + fragments + 7z supercompressed archive published to the `latest` release.
 #
 # Rolling `latest` release URL (always the newest green build):
-#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.7-debug.apk
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.8-debug.apk
 
 on:
   push:
@@ -81,7 +82,7 @@ jobs:
           nproc
           free -h
 
-      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.4.7-fix2)
+      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.4.8)
         env:
           CCACHE_DIR: ~/.ccache
         run: |
@@ -105,7 +106,7 @@ jobs:
       - name: Upload build artifact (90-day)
         uses: actions/upload-artifact@v4
         with:
-          name: LeicaPerfect-v6.4.7-debug-apk
+          name: LeicaPerfect-v6.4.8-debug-apk
           path: apk/*.apk
           retention-days: 90
           if-no-files-found: error
@@ -143,12 +144,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Leica Perfect v6.4.7 ABSOLUTE (mode_max — natural baseline — DEBUG build)
+          name: Leica Perfect v6.4.8 ABSOLUTE (mode_max — Leica M9 LUT — night precision — DEBUG build)
           body: |
-            # Leica Perfect v6.4.7 ABSOLUTE
+            # Leica Perfect v6.4.8 ABSOLUTE
 
             Photon Camera fork — built from upstream `bjzhou/PhotonCamera` 1.26.1
-            + surgical patches (Cron 16: natural baseline — LUT "none" no perfil ativo).
+            + surgical patches (Cron 17: night precision — flat+noisy fix).
 
             ## ABSOLUTE build
             - **No mod menu** — mode_max is baked from JSON config (no UI to change it)
@@ -160,22 +161,35 @@ jobs:
             - **v6.4.6: Release build** — R8 minified + arm64-v8a only (~50% smaller APK)
             - **v6.4.7: Natural baseline** — LUT "none" no perfil ativo (DCP Leica M8 + AgX + sharpening)
             - **v6.4.7-fix2: DEBUG build** — reverted from release to debug build for guaranteed installability (release build had "parse error" on Xiaomi 15T)
+            - **v6.4.8: Night precision** — revert P-75 LUT leica_m9 (flat+noisy fix) + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96
 
-            ## What's new in v6.4.7
-            - **P-75 natural baseline (LUT none)**: investigation confirmou que o perfil ativo
-              `leica_perfect_signature` forçava LUT `leica_m9` (Kodak M9 CCD magenta/blue shadows).
-              Agora `lut_id="none"` → sentinel que pula LUT no `LutManager.loadLut()` (path="" → retorna
-              null → `uLutEnabled=0` → GLSL LUT block skipped). Saída padrão = **DCP Leica M8 + AgX
-              + sharpening** (caminho natural, sem desvio criativo forçado).
-            - **P-75 latent bug fix**: `force_baseline_lut_id` era `"Leica_M9_STD"` (filename do .plut)
-              mas `LutManager.getLutInfo` usa match case-sensitive por ID (`"leica_m9"`). Se o usuário
-              ativasse o perfil `leica_authentic` (baseline), a LUT seria silenciosamente pulada.
-              Agora `force_baseline_lut_id="none"` → sentinel explícito, sem bug latente.
-            - DCP baseline mantido: **Leica M8 Camera Standard** (professional rangefinder, 2006 APS-H CCD)
+            ## What's new in v6.4.8 (P-76 night precision)
+            - **P-76.1: revert LUT leica_m9** — P-75 (v6.4.7) set lut_id="none" which removed Leica M9 CCD
+              color science (rich colors + contrast + noise masking). Night photos at ISO 1500-3275 came out
+              FLAT and NOISY. Revert restores Leica M9 look + masks sensor grain.
+            - **P-76.2: force_baseline_lut_id="leica_m9"** — case-sensitive correct ID. The latent bug
+              from v6.4.6 era ("Leica_M9_STD" filename that never resolved in LutManager.getLutInfo)
+              STAYS FIXED with the correct ID "leica_m9".
+            - **P-76.3: AgX shadow_lift 0.10→0.05** — -50% shadow lift. Less sensor noise reveal in shadows.
+            - **P-76.4: pgtm_pre_tonemap_exposure_boost_ev 1.3→0.8** — -38% pre-tonemap boost. ISO 1500-3000
+              noise no longer amplified ~5x by AgX lift.
+            - **P-76.5: noise_reduction.luminance 0.92→0.96** — +4% luma NR. Compensates mode_max night ISO
+              without plasticizing (detail_preserve 0.96 retained).
+            - **Diagnosis**: EXIF comparison (Stock ISO 1000 1/30s clean vs Photon ISO 1506 1/59s flat+noisy,
+              same room 5 min apart) + VLM analysis (Photon underexposed/flat/noisy, Stock bright/vivid/clean).
+              3 root causes: (1) P-75 LUT=none removed color+masking, (2) AgX +2.3EV lift amplified noise 5x,
+              (3) NR luma 0.92 insufficient for ISO 1500-3000.
 
-            ## What's new in v6.4.6 (previous)
+            ## What's new in v6.4.7 (previous — P-75, now reverted by P-76)
+            - **P-75 natural baseline (LUT none)**: removed Leica M9 CCD color science for "natural" look.
+              REVERTED in v6.4.8 P-76.1 — flat+noisy at night.
+            - **P-75 latent bug fix**: force_baseline_lut_id "Leica_M9_STD"→"none"→"leica_m9" (v6.4.8).
+              Bug STAYS FIXED with correct case-sensitive ID.
+
+            ## What's new in v6.4.6 (older)
             - **P-73 mode_fast removed**: single capture mode (mode_max only). Thermal throttle is warning-only.
             - **P-74 Release APK + R8**: switched from debug to release build. R8 + arm64-v8a (~50% smaller APK).
+            - **v6.4.7-fix2**: reverted to DEBUG build (release had "parse error" on Xiaomi 15T).
 
             ## What's new in v6.4.5 (older)
             - **P-72 RAW on-demand**: flipped `force_no_raw`/`force_no_dng` true→false
@@ -186,11 +200,11 @@ jobs:
 
             ## Download
             ### Option A — single APK (easiest)
-            Download `LeicaPerfect-v6.4.7-debug.apk` and install.
+            Download `LeicaPerfect-v6.4.8-debug.apk` and install.
 
             ### Option B — 7z supercompressed (smallest download)
-            Download `LeicaPerfect-v6.4.7-debug.apk.7z` (LZMA2 max compression).
-            Extract with: `7z x LeicaPerfect-v6.4.7-debug.apk.7z`
+            Download `LeicaPerfect-v6.4.8-debug.apk.7z` (LZMA2 max compression).
+            Extract with: `7z x LeicaPerfect-v6.4.8-debug.apk.7z`
 
             ### Option C — fragments (parallel / resumable)
             Grab the `.part*` files + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.
