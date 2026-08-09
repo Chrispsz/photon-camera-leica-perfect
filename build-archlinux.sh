@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.3"
+readonly FORK_VERSION="6.4.4"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -214,7 +214,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 57 patches cirúrgicos (73 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 87 substeps cirúrgicos (60 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 90 substeps cirúrgicos (61 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5013,6 +5013,133 @@ PYEOF
 
     ok "P-70: video 4K stability fix applied (v6.4.3) — sub-patches: $p70_count/4"
     if [[ "$p70_count" -ge 3 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
+    # Tier 19 (P-71) — v6.4.4: Composition aids ON (grid + horizon level + DNG-with-RAW)
+    # ───────────────────────────────────────────────────────────────────────
+    # User asked: "tudo que tem pra configurar que ajuda na qualidade e composição
+    # de foto é ligado? Busque por mais coisas no app, como grid, linha horizontal"
+    # Audit found 3 toggles still OFF that help composition/quality:
+    #   P-71.1: showGrid           false → true  (rule-of-thirds 3x3 composition grid)
+    #   P-71.2: showLevelIndicator false → true  (gravity-sensor horizon level, green <3°)
+    #   P-71.3: exportDngWithRawExport false → true (preserve full DNG alongside JPEG when shooting RAW)
+    # Already ON (no change needed): showHistogram, focusPeakingEnabled, rawLensShadingCorrectionEnabled,
+    #   ultraHdrGainMapEnabled, useHdrScreenMode, useRawMaxHdrComposition, mirrorFrontCamera
+    section "P-71: Cron 13 — composition aids ON (grid + horizon + DNG) (v6.4.4)"
+    local p71_count=0
+    local upr_p71="$APP_JAVA/data/UserPreferencesRepository.kt"
+    if [[ -f "$upr_p71" ]]; then
+        if grep -q 'P-71 v6.4.4' "$upr_p71" 2>/dev/null; then
+            ok "P-71: already patched (idempotent)"
+            p71_count=3
+        else
+            # P-71.1: data class field defaults (3 fields) — ASCII-only partial matches
+            # (avoid Chinese comment encoding issues like P-69.1 hit)
+            substep "P-71.1: UserPreferencesRepository.kt — data class field defaults (3)"
+            python3 - "$upr_p71" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+changes = 0
+
+# Use ASCII-only partial matches (data class lines have Chinese comments after;
+# we match up to and including the comma, leaving the original comment in place)
+patches = [
+    # exportDngWithRawExport (L148, no Chinese comment — clean match)
+    ('val exportDngWithRawExport: Boolean = false,',
+     'val exportDngWithRawExport: Boolean = true,  // P-71 v6.4.4: preserve DNG alongside JPEG when shooting RAW'),
+    # showGrid (L152, has Chinese comment // 网格线显示 — match ASCII portion only)
+    ('val showGrid: Boolean = false,',
+     'val showGrid: Boolean = true,  // P-71 v6.4.4: rule-of-thirds composition grid ON by default'),
+    # showLevelIndicator (L153, has Chinese comment // 水平仪显示 — match ASCII portion only)
+    ('val showLevelIndicator: Boolean = false,',
+     'val showLevelIndicator: Boolean = true,  // P-71 v6.4.4: horizon level indicator ON by default'),
+]
+
+for old, new in patches:
+    if old in src:
+        src = src.replace(old, new, 1)
+        changes += 1
+    else:
+        print(f"P-71.1 WARN: not found: {old[:55]}")
+
+p.write_text(src)
+print(f"P-71.1: patched {changes}/3 data class field defaults")
+PYEOF
+            local dc71_ok=$(grep -c 'P-71 v6.4.4' "$upr_p71" 2>/dev/null || echo 0)
+            if [[ "$dc71_ok" -ge 3 ]]; then
+                ok "P-71.1: $dc71_ok/3 data class defaults patched (grid + level + DNG)"
+                p71_count=$((p71_count + 1))
+            else
+                warn "P-71.1: only $dc71_ok/3 defaults patched (expected 3)"
+            fi
+
+            # P-71.2: DataStore mapper fallbacks (3 fields) — full-line matches (no Chinese)
+            substep "P-71.2: UserPreferencesRepository.kt — DataStore mapper fallbacks (3)"
+            python3 - "$upr_p71" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+changes = 0
+
+patches = [
+    ('exportDngWithRawExport = preferences[EXPORT_DNG_WITH_RAW_EXPORT_KEY] ?: false,',
+     'exportDngWithRawExport = preferences[EXPORT_DNG_WITH_RAW_EXPORT_KEY] ?: true,  // P-71 v6.4.4 mapper: DNG with RAW'),
+    ('showGrid = preferences[SHOW_GRID] ?: false,',
+     'showGrid = preferences[SHOW_GRID] ?: true,  // P-71 v6.4.4 mapper: grid ON'),
+    ('showLevelIndicator = preferences[SHOW_LEVEL_INDICATOR] ?: false,',
+     'showLevelIndicator = preferences[SHOW_LEVEL_INDICATOR] ?: true,  // P-71 v6.4.4 mapper: level ON'),
+]
+
+for old, new in patches:
+    if old in src:
+        src = src.replace(old, new, 1)
+        changes += 1
+    else:
+        print(f"P-71.2 WARN: not found: {old[:55]}")
+
+p.write_text(src)
+print(f"P-71.2: patched {changes}/3 mapper fallbacks")
+PYEOF
+            local mp71_ok=$(grep -c 'P-71 v6.4.4 mapper' "$upr_p71" 2>/dev/null || echo 0)
+            if [[ "$mp71_ok" -ge 3 ]]; then
+                ok "P-71.2: $mp71_ok/3 mapper fallbacks patched (grid + level + DNG)"
+                p71_count=$((p71_count + 1))
+            else
+                warn "P-71.2: only $mp71_ok/3 mapper fallbacks patched (expected 3)"
+            fi
+
+            # P-71.3: verification greps
+            substep "P-71.3: verification greps"
+            local v_grid_dc=$(grep -c 'showGrid: Boolean = true' "$upr_p71" 2>/dev/null || echo 0)
+            local v_level_dc=$(grep -c 'showLevelIndicator: Boolean = true' "$upr_p71" 2>/dev/null || echo 0)
+            local v_dng_dc=$(grep -c 'exportDngWithRawExport: Boolean = true' "$upr_p71" 2>/dev/null || echo 0)
+            local v_grid_mp=$(grep -c 'SHOW_GRID\] ?: true' "$upr_p71" 2>/dev/null || echo 0)
+            local v_level_mp=$(grep -c 'SHOW_LEVEL_INDICATOR\] ?: true' "$upr_p71" 2>/dev/null || echo 0)
+            local v_dng_mp=$(grep -c 'EXPORT_DNG_WITH_RAW_EXPORT_KEY\] ?: true' "$upr_p71" 2>/dev/null || echo 0)
+            info "P-71.3: grid dc=$v_grid_dc mp=$v_grid_mp | level dc=$v_level_dc mp=$v_level_mp | dng dc=$v_dng_dc mp=$v_dng_mp"
+            local p71_verify=0
+            [[ "$v_grid_dc" -ge 1 ]] && [[ "$v_grid_mp" -ge 1 ]] && ((++p71_verify))
+            [[ "$v_level_dc" -ge 1 ]] && [[ "$v_level_mp" -ge 1 ]] && ((++p71_verify))
+            [[ "$v_dng_dc" -ge 1 ]] && [[ "$v_dng_mp" -ge 1 ]] && ((++p71_verify))
+            if [[ "$p71_verify" -eq 3 ]]; then
+                ok "P-71.3: verification passed ($p71_verify/3 — all toggles ON in data class + mapper)"
+                p71_count=$((p71_count + 1))
+            else
+                warn "P-71.3: verification partial ($p71_verify/3)"
+            fi
+        fi
+    else
+        warn "P-71: UserPreferencesRepository.kt not found at $upr_p71"
+    fi
+
+    ok "P-71: composition aids ON (v6.4.4) — sub-patches: $p71_count/3"
+    if [[ "$p71_count" -ge 2 ]]; then
         ((++patch_count))
     else
         ((++patch_fail))

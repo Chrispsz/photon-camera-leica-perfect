@@ -1,7 +1,7 @@
-# Photon Camera — Leica Perfect v6.4.3
+# Photon Camera — Leica Perfect v6.4.4
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **70 surgical patches** (Cron 12 photo quality + video 4K stability fix),
+with **71 surgical patches** (Cron 13 composition aids + photo quality + video 4K stability),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Default capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
@@ -14,13 +14,13 @@ NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click)
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.3-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.4-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.3-debug.apk
+adb install -r LeicaPerfect-v6.4.4-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -36,10 +36,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 70 surgical `sed` patches (tiers P-1 … P-70) over the upstream Kotlin/C++ source |
+| `patch` | 71 surgical `sed` patches (tiers P-1 … P-71) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — fast, no OOM) |
 
-Output: `apk/LeicaPerfect-v6.4.3-debug.apk` (~138 MB).
+Output: `apk/LeicaPerfect-v6.4.4-debug.apk` (~138 MB).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -86,15 +86,20 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.3 (vs upstream)
+## What's in v6.4.4 (vs upstream)
 
-- **Cron 12 photo quality + video 4K stability** — 70 patches / 165 substeps, all verified
+- **Cron 13 composition aids + photo quality + video 4K stability** — 71 patches / 168 substeps, all verified
+- **P-71 composition aids ON** (3 settings): rule-of-thirds **grid** ON by default,
+  **horizon level** indicator ON (gravity sensor, turns green <3°), **DNG-with-RAW export**
+  ON (preserves full DNG alongside JPEG when shooting RAW). **Clear Data after install to apply.**
 - **P-69 photo quality defaults** (8 settings): NR Off (software NLM handles it),
   Sharpening HQ, JPEG Q100, JPEG 4:4:4 + Ultra HDR, tone mapping preview+capture fix,
-  P010 10-bit YUV, JPGmax HDR composition. **Clear Data after install to apply.**
+  P010 10-bit YUV, JPGmax HDR composition.
 - **P-70 video 4K stability fix**: bitrate 250→120 Mbps (P4 — visually lossless,
   encoder can keep up), muxer.stop() failure no longer silent (propagates to UI +
   keeps partial file for recovery), writeSampleData frame drops upgraded to PLog.e
+- Already ON by default (no patch needed): live histogram, focus peaking,
+  RAW lens shading correction, UltraHDR gain map, HDR screen preview, RAWmax HDR composition
 - **v6.4.2 P-68**: live preview LUT picker fix (P-52a respects runtimeLutOverride)
 - `mode_max` as the active default (was `mode_fast`)
 - `mode_balanced` removed; RAW/DNG export disabled (one-click JPEG)
