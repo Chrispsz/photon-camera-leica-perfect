@@ -1,11 +1,12 @@
-# Photon Camera — Leica Perfect v6.4.4
+# Photon Camera — Leica Perfect v6.4.5
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **71 surgical patches** (Cron 13 composition aids + photo quality + video 4K stability),
+with **72 surgical patches** (Cron 14 RAW on-demand + composition aids + photo quality + video 4K stability),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Default capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
-NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click).
+NLM radius 7, JPEG/HEIC/UltraHDR Q100). **JPEG by default; RAW available on-demand**
+via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
 
 ---
 
@@ -14,13 +15,13 @@ NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click)
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.4-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.5-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.4-debug.apk
+adb install -r LeicaPerfect-v6.4.5-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -36,10 +37,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 71 surgical `sed` patches (tiers P-1 … P-71) over the upstream Kotlin/C++ source |
+| `patch` | 72 surgical `sed` patches (tiers P-1 … P-72) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — fast, no OOM) |
 
-Output: `apk/LeicaPerfect-v6.4.4-debug.apk` (~138 MB).
+Output: `apk/LeicaPerfect-v6.4.5-debug.apk` (~138 MB).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -86,9 +87,14 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.4 (vs upstream)
+## What's in v6.4.5 (vs upstream)
 
-- **Cron 13 composition aids + photo quality + video 4K stability** — 71 patches / 168 substeps, all verified
+- **Cron 14 RAW on-demand + composition aids + photo quality + video 4K stability** — 72 patches / 170 substeps, all verified
+- **P-72 RAW on-demand**: flipped `force_no_raw`/`force_no_dng` true→false in JSON config.
+  Investigation found these were essentially no-ops (only affected 2 LeicaConfig accessors
+  which are bypassed by the actual export path), but the config was misleading. Now consistent:
+  **JPEG by default (mode_max shoots YUV); RAW available on-demand via gear icon → RAW toggle**.
+  When RAW is on, mode_max does 15-frame RAW burst stacking + saves DNG alongside JPEG (P-71).
 - **P-71 composition aids ON** (3 settings): rule-of-thirds **grid** ON by default,
   **horizon level** indicator ON (gravity sensor, turns green <3°), **DNG-with-RAW export**
   ON (preserves full DNG alongside JPEG when shooting RAW). **Clear Data after install to apply.**
@@ -102,7 +108,7 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
   RAW lens shading correction, UltraHDR gain map, HDR screen preview, RAWmax HDR composition
 - **v6.4.2 P-68**: live preview LUT picker fix (P-52a respects runtimeLutOverride)
 - `mode_max` as the active default (was `mode_fast`)
-- `mode_balanced` removed; RAW/DNG export disabled (one-click JPEG)
+- `mode_balanced` removed; JPEG one-click by default, RAW opt-in via toggle
 - Per-lens AgX tone mapping, NLM, frame counts, DCP ratios
 - 26 creative profiles (Leica Authentic, Leica Monochrome, Hasselblad HNCS, Fuji, …)
 - doNotStrip for all `.so` (fixes JVM crash on `libBugly_Native.so` with NDK r29)

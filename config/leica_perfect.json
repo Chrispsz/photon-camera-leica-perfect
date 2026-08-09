@@ -11,12 +11,12 @@
     "schema_version": 5,
     "device_target": "Xiaomi 15T (dizi) — OV50E + S5KJN1 + S5K3J1 + OV32B"
   },
-  "_comment_capture_modes": "v6.4.0 INTELLIGENT ADAPTIVE — 2 modos de captura. mode_max = max qualidade (lento, pra cenas estaticas/tripod/low-light, 15/9/7/11 frames, super-res 2.0x, NLM radius 7). mode_fast = disparo rapido inteligente (5/3/3/5 frames, NLM radius 3, ~0.3s latency, sustain indefinido — cobre 100% dos casos de acao/burst/casual). mode_balanced REMOVIDO (v6.4.0). RAW/DNG export DESATIVADO — usuario quer JPEG one-click.",
+  "_comment_capture_modes": "v6.4.5 INTELLIGENT ADAPTIVE — 2 modos de captura. mode_max = max qualidade (lento, pra cenas estaticas/tripod/low-light, 15/9/7/11 frames, super-res 2.0x, NLM radius 7). mode_fast = disparo rapido inteligente (5/3/3/5 frames, NLM radius 3, ~0.3s latency, sustain indefinido — cobre 100% dos casos de acao/burst/casual). mode_balanced REMOVIDO (v6.4.0). JPEG one-click por default; RAW disponivel on-demand via toggle na engrenagem (v6.4.5: force_no_raw=false).",
   "capture_modes": {
     "active_capture_mode": "mode_max",
     "modes": {
       "mode_max": {
-        "_comment": "MAX QUALITY — 15/9/7/11 frames, super res 2.0x, NLM radius 7, full pipeline. ~1.8s latency. PRA: tripod, low-light, paisagem, arquitetura, retrato posado. JPEG Q100 + HEIC Q100 + UltraHDR Q100. SEM RAW/DNG (v6.4.0 — usuario nao edita raw).",
+        "_comment": "MAX QUALITY — 15/9/7/11 frames, super res 2.0x, NLM radius 7, full pipeline. ~1.8s latency. PRA: tripod, low-light, paisagem, arquitetura, retrato posado. JPEG Q100 + HEIC Q100 + UltraHDR Q100. JPEG por default; RAW on-demand via toggle (v6.4.5).",
         "frame_count_multiplier": 1.0,
         "super_resolution_scale": 2.0,
         "nlm_search_radius": 7,
@@ -26,7 +26,7 @@
         "thermal_throttle_at_c": 45
       },
       "mode_fast": {
-        "_comment": "FAST INTELLIGENT TRIGGER (DEFAULT v6.4.0) — 5/3/3/5 frames, sem super res, NLM radius 3, pipeline enxuto. ~0.3s latency, sustain indefinido. PRA: 100% dos casos — diario, street, acao, burst, criancas, pets, esporte. Melhor relacao qualidade/velocidade/termico. Substitui o antigo mode_balanced (removido). SEM RAW/DNG.",
+        "_comment": "FAST INTELLIGENT TRIGGER (DEFAULT v6.4.0) — 5/3/3/5 frames, sem super res, NLM radius 3, pipeline enxuto. ~0.3s latency, sustain indefinido. PRA: 100% dos casos — diario, street, acao, burst, criancas, pets, esporte. Melhor relacao qualidade/velocidade/termico. Substitui o antigo mode_balanced (removido). JPEG one-click; RAW on-demand (v6.4.5).",
         "frame_count_multiplier": 0.4,
         "super_resolution_scale": 1.0,
         "nlm_search_radius": 3,
@@ -78,8 +78,8 @@
     "max_resolution": 0,
     "preserve_exif": true,
     "add_watermark": false,
-    "force_no_raw": true,
-    "force_no_dng": true,
+    "force_no_raw": false,
+    "force_no_dng": false,
     "force_heic_q100": true,
     "force_ultrahdr_q100": true
   },

@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.4"
+readonly FORK_VERSION="6.4.5"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -214,7 +214,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 57 patches cirúrgicos (73 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 90 substeps cirúrgicos (61 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 92 substeps cirúrgicos (62 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5140,6 +5140,90 @@ PYEOF
 
     ok "P-71: composition aids ON (v6.4.4) — sub-patches: $p71_count/3"
     if [[ "$p71_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
+    # Tier 20 (P-72) — v6.4.5: RAW on-demand (unblock force_no_raw)
+    # ───────────────────────────────────────────────────────────────────────
+    # User asked: "O RAW está ligado ou não? Não quero RAW por padrão, mas
+    # quando precisar é útil ter configurado."
+    #
+    # Investigation (Task 8-a) found:
+    #   - force_no_raw=true (P-62 Cron 7) is essentially a NO-OP — it only
+    #     affects 2 LeicaConfig accessors (L737, L746) which are BYPASSED
+    #     by the actual export path (CameraViewModel.kt:5027,5593 reads
+    #     UserPreferences.exportDngWithRawExport directly, not LeicaConfig)
+    #   - RAW is ALREADY available on-demand via CameraTopSheet.kt:690 toggle
+    #     (gear icon → RAW switch), gated by isRawSupported (device cap), NOT
+    #     by force_no_raw or NO_MENU
+    #   - mode_max shoots YUV_420_888 by default (useRaw=false) → JPEG
+    #   - When user toggles RAW on, mode_max does 15-frame RAW burst stacking
+    #   - P-71's exportDngWithRawExport=true IS effective (propagates via
+    #     UserPreferences → CameraViewModel → GalleryManager L2194 export gate)
+    #
+    # So the user's requirement is ALREADY met by v6.4.4. P-72 is a CLEANUP:
+    #   - Flip force_no_raw: true → false (consistency: config matches behavior)
+    #   - Flip force_no_dng: true → false (same)
+    #   - Defensive: if user didn't Clear Data, eliminates any edge case where
+    #     the LeicaConfig accessor could shadow UserPreferences
+    section "P-72: Cron 14 — RAW on-demand (unblock force_no_raw) (v6.4.5)"
+    local p72_count=0
+    local json_p72="$APP_ASSETS/leica_perfect.json"
+    if [[ -f "$json_p72" ]]; then
+        if grep -q '"force_no_raw": false' "$json_p72" 2>/dev/null; then
+            ok "P-72: already patched (idempotent)"
+            p72_count=2
+        else
+            # P-72.1: Flip force_no_raw + force_no_dng: true → false
+            substep "P-72.1: leica_perfect.json — force_no_raw + force_no_dng: true → false"
+            python3 - "$json_p72" <<'PYEOF'
+import sys, json, pathlib
+p = pathlib.Path(sys.argv[1])
+data = json.loads(p.read_text())
+changes = 0
+
+out = data.get("output", {})
+if out.get("force_no_raw") is True:
+    out["force_no_raw"] = False
+    changes += 1
+if out.get("force_no_dng") is True:
+    out["force_no_dng"] = False
+    changes += 1
+
+p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+print(f"P-72.1: flipped {changes}/2 force_no_* fields (true → false)")
+PYEOF
+            local fnr_false=$(grep -c '"force_no_raw": false' "$json_p72" 2>/dev/null || echo 0)
+            local fnd_false=$(grep -c '"force_no_dng": false' "$json_p72" 2>/dev/null || echo 0)
+            if [[ "$fnr_false" -ge 1 ]] && [[ "$fnd_false" -ge 1 ]]; then
+                ok "P-72.1: force_no_raw=false + force_no_dng=false (RAW available on-demand)"
+                p72_count=$((p72_count + 1))
+            else
+                warn "P-72.1: flip failed (fnr=$fnr_false, fnd=$fnd_false)"
+            fi
+
+            # P-72.2: verification grep
+            substep "P-72.2: verification grep"
+            local fnr_true=$(grep -c '"force_no_raw": true' "$json_p72" 2>/dev/null || echo 0)
+            local fnd_true=$(grep -c '"force_no_dng": true' "$json_p72" 2>/dev/null || echo 0)
+            info "P-72.2: force_no_raw=false count=$fnr_false (>=1), force_no_raw=true count=$fnr_true (==0)"
+            if [[ "$fnr_false" -ge 1 ]] && [[ "$fnr_true" -eq 0 ]] && [[ "$fnd_true" -eq 0 ]]; then
+                ok "P-72.2: verification passed (no force_no_raw/dng: true remaining)"
+                p72_count=$((p72_count + 1))
+            else
+                warn "P-72.2: verification partial (true values remain)"
+            fi
+        fi
+    else
+        warn "P-72: leica_perfect.json not found at $json_p72"
+    fi
+
+    ok "P-72: RAW on-demand unblocked (v6.4.5) — sub-patches: $p72_count/2"
+    if [[ "$p72_count" -ge 1 ]]; then
         ((++patch_count))
     else
         ((++patch_fail))
