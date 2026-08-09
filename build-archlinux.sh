@@ -4625,16 +4625,16 @@ if old in src:
 else:
     print("P-69.1 WARN: edgeLevel=1 data class line not found")
 
-# 3. photoQuality: 95 → 100 (data class)
-old = '    val photoQuality: Int = 95, // 照片质量: 90, 95, 100'
+# 3. photoQuality: 95 → 100 (data class) — match code only (avoid Chinese comment encoding issues)
+old = '    val photoQuality: Int = 95,'
 new = '    val photoQuality: Int = 100, // P-69 v6.4.3: max JPEG quality'
 if old in src:
     src = src.replace(old, new, 1); changes += 1
 else:
     print("P-69.1 WARN: photoQuality=95 data class line not found")
 
-# 4. useJpeg444Export: false → true (data class)
-old = '    val useJpeg444Export: Boolean = false, // 是否使用 JPEG 4:4:4 色度采样导出'
+# 4. useJpeg444Export: false → true (data class) — match code only (avoid Chinese comment encoding issues)
+old = '    val useJpeg444Export: Boolean = false,'
 new = '    val useJpeg444Export: Boolean = true, // P-69 v6.4.3: 4:4:4 chroma + Ultra HDR gain maps preserved'
 if old in src:
     src = src.replace(old, new, 1); changes += 1
@@ -4725,13 +4725,13 @@ if old in src:
 else:
     print("P-69.2 WARN: photoQuality ?: 95 mapper line not found")
 
-# 4. useJpeg444Export mapper: ?: false → ?: true
-old = '                val useJpeg444Export =\n                    (preferences[USE_JPEG_444_EXPORT] ?: false) && !useHeicExport'
-new = '                val useJpeg444Export = // P-69 v6.4.3 mapper: 4:4:4 default\n                    (preferences[USE_JPEG_444_EXPORT] ?: true) && !useHeicExport'
+# 4. useJpeg444Export mapper: ?: false → ?: true — match the preferences expr only (indentation varies)
+old = '(preferences[USE_JPEG_444_EXPORT] ?: false) && !useHeicExport'
+new = '(preferences[USE_JPEG_444_EXPORT] ?: true) && !useHeicExport  // P-69 v6.4.3 mapper: 4:4:4 default'
 if old in src:
     src = src.replace(old, new, 1); changes += 1
 else:
-    print("P-69.2 WARN: useJpeg444Export ?: false mapper line not found")
+    print("P-69.2 WARN: useJpeg444Export ?: false mapper expr not found")
 
 # 5. fixTonemapPreview mapper: ?: false → ?: true
 old = '                fixTonemapPreview = preferences[FIX_TONEMAP_PREVIEW] ?: false,'
