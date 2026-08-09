@@ -60,7 +60,7 @@ import com.hinnka.mycamera.raw.LeicaRuntimeState
  *   - ONE-CLICK MAX button (P-65) — preset rápido pra foto máxima qualidade.
  */
 
-// ── 2 Capture Modes — descrições limpas, sem jargão técnico ──────────
+// ── 1 Capture Mode (v6.4.6: mode_fast removido P-73 — 15T não esquenta) ──
 private data class CaptureModeOption(
     val id: String,
     val label: String,
@@ -68,8 +68,7 @@ private data class CaptureModeOption(
 )
 
 private val CAPTURE_MODES = listOf(
-    CaptureModeOption("mode_fast", "Disparo Rápido", "Inteligente — 100% dos casos, ação, burst, casual"),
-    CaptureModeOption("mode_max", "Quality Max", "Baixa luz, tripé, máxima qualidade (lento)")
+    CaptureModeOption("mode_max", "Quality Max", "15/9/7/11 frames, super-res 2x, NLM r=7 — máxima qualidade")
 )
 
 // ── 5 Melhores LUTs — curados pra mod menu (v6.4.0) ──────────────────

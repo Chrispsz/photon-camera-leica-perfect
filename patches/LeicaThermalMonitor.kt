@@ -102,15 +102,14 @@ object LeicaThermalMonitor {
     }
 
     /**
-     * shouldDegradeCapture — true se device está quente E não está já em mode_fast.
-     * CameraViewModel.capture() usa isso pra decidir se auto-degrada pra mode_fast.
-     * v6.3.8.6: antes degradava pra mode_fast (removido); agora vai pra mode_balanced.
-     * v6.4.0: mode_balanced removido; agora degrada pra mode_fast (disparo rápido inteligente).
+     * shouldDegradeCapture — v6.4.6: mode_fast REMOVIDO (P-73). Não há mais modo pra degradar.
+     * Agora retorna SEMPRE false. Thermal throttle vira apenas WARNING no log (sem ação automática).
+     * Justificativa: user reportou que o 15T Dimensity 8300-Ultra não esquena tirando fotos.
+     * CameraViewModel.capture() ainda consulta essa função, mas não vai mais degradar.
      */
     fun shouldDegradeCapture(): Boolean {
-        if (isThrottled() && LeicaConfig.activeCaptureMode != "mode_fast") {
-            PLog.w(TAG, "Thermal throttle recommended: ${thermalStatus()}")
-            return true
+        if (isThrottled()) {
+            PLog.w(TAG, "Thermal throttle detected (no degrade — mode_fast removed in v6.4.6): ${thermalStatus()}")
         }
         return false
     }

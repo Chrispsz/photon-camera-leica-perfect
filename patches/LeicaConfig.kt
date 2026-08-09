@@ -94,7 +94,7 @@ object LeicaConfig {
      * Controla trade-off qualidade vs velocidade/termico.
      */
     data class CaptureModeConfig(
-        @SerializedName("active_capture_mode") val activeCaptureMode: String? = "mode_fast",
+        @SerializedName("active_capture_mode") val activeCaptureMode: String? = "mode_max",
         @SerializedName("modes") val modes: Map<String, CaptureModeSettings>? = null,
     )
 
@@ -538,14 +538,14 @@ object LeicaConfig {
     val deviceTarget: String get() = currentConfig?.meta?.deviceTarget
         ?: "Xiaomi 15T (dizi) — OV50E + S5KJN1 + S5K3J1 + OV32B"
 
-    /** Capture mode ativo (mode_max / mode_fast).
+    /** Capture mode ativo (mode_max unico).
      *  v6.3.4: checa LeicaRuntimeState.captureModeOverride primeiro (setado pelo menu).
-     *  v6.4.0: default mudou de mode_balanced (removido) pra mode_fast (disparo rapido inteligente).
+     *  v6.4.6: mode_fast REMOVIDO (P-73). Agora SO mode_max. Default mudou pra mode_max.
      *  Só cai pro JSON se override for null. */
     val activeCaptureMode: String
         get() = LeicaRuntimeState.captureModeOverride
             ?: currentConfig?.captureModes?.activeCaptureMode
-            ?: "mode_fast"
+            ?: "mode_max"
 
     /** Settings do capture mode ativo (null = usar defaults globais). */
     val captureModeSettings: CaptureModeSettings?
@@ -1321,7 +1321,7 @@ object LeicaConfig {
             append("${countSections(cfg)} sections, ")
             append("${cfg.creativeProfiles?.profiles?.size ?: 0} creative profiles, ")
             append("active=${cfg.creativeProfiles?.activeProfile ?: "leica_authentic"}, ")
-            append("capture_mode=${cfg.captureModes?.activeCaptureMode ?: "mode_fast"}, ")
+            append("capture_mode=${cfg.captureModes?.activeCaptureMode ?: "mode_max"}, ")
             append("loaded ${if (isLoaded) "OK" else "FAIL"}")
         }
     }
@@ -1386,15 +1386,11 @@ object LeicaConfig {
 
     /**
      * resolveCaptureModeForScene — recomenda capture mode baseado na cena.
-     * Heurística simples: low-light estática → mode_max; else → mode_fast.
-     * v6.4.0: mode_balanced removido; action/burst/casual agora usa mode_fast (disparo rapido inteligente).
+     * v6.4.6: mode_fast REMOVIDO (P-73). Agora SEMPRE retorna mode_max (unico modo).
      * (Não é override — apenas sugestão. O usuário escolhe explicitamente.)
      */
     fun resolveCaptureModeForScene(sceneLux: Float, isStatic: Boolean): String {
-        return when {
-            isStatic && sceneLux < 100f -> "mode_max"
-            else -> "mode_fast"
-        }
+        return "mode_max"
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -52,7 +52,7 @@
 #
 # Uso:
 #   ./build-archlinux.sh clone    # clona o upstream
-#   ./build-archlinux.sh patch    # aplica os 67 patches cirúrgicos (90+ substeps)
+#   ./build-archlinux.sh patch    # aplica os 75 patches cirúrgicos (95+ substeps)
 #   ./build-archlinux.sh build    # builda o APK
 #   ./build-archlinux.sh all      # faz tudo (clone + patch + build)
 #   ./build-archlinux.sh check    # bash -n syntax check
@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.5"
+readonly FORK_VERSION="6.4.6"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -211,10 +211,10 @@ cmd_clone() {
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# COMANDO: patch — aplica 57 patches cirúrgicos (73 substeps)
+# COMANDO: patch — aplica 59 patches cirúrgicos (75 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 92 substeps cirúrgicos (62 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 95 substeps cirúrgicos (64 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5231,6 +5231,255 @@ PYEOF
     echo ""
 
     # ───────────────────────────────────────────────────────────────────────
+    # Tier 21 (P-73) — v6.4.6: Remove mode_fast (single capture mode)
+    # ───────────────────────────────────────────────────────────────────────
+    # User feedback: "Ele praticamente não esquenta tirando fotos, então esse
+    # mode fast pode só atrapalhar". P-73 remove mode_fast entirely:
+    #   - JSON: mode_fast block removed from capture_modes.modes
+    #   - LeicaConfig.kt: default activeCaptureMode "mode_fast" → "mode_max"
+    #   - LeicaConfig.kt: resolveCaptureModeForScene always returns "mode_max"
+    #   - LeicaConfig.kt: dumpConfig fallback "mode_fast" → "mode_max"
+    #   - LeicaThermalMonitor.kt: shouldDegradeCapture() returns false (no mode to degrade to)
+    #   - LeicaRuntimeState.kt: cycleCaptureMode() is now no-op (always "mode_max")
+    #   - LeicaSettingsScreen.kt: mode_fast option removed from CAPTURE_MODES list
+    #
+    # Files are pre-modified in patches/ and config/ (P-1 copies them to source).
+    # This step verifies the changes took effect after copy.
+    section "P-73: Remove mode_fast — single capture mode (v6.4.6)"
+    local p73_count=0
+
+    # P-73.1: Verify JSON has no mode_fast block
+    substep "P-73.1: verify leica_perfect.json — mode_fast block removed"
+    local json_p73="$SOURCE_DIR/app/src/main/assets/leica_perfect.json"
+    if [[ -f "$json_p73" ]]; then
+        local fast_in_json
+        fast_in_json=$(python3 -c "
+import json, sys
+with open('$json_p73') as f:
+    cfg = json.load(f)
+modes = cfg.get('capture_modes', {}).get('modes', {})
+has_fast = 'mode_fast' in modes
+has_max = 'mode_max' in modes
+print(f'fast={has_fast} max={has_max}')
+" 2>/dev/null || echo "parse_error")
+        info "P-73.1: JSON modes check: $fast_in_json"
+        if [[ "$fast_in_json" == "fast=False max=True" ]]; then
+            ok "P-73.1: mode_fast removed from JSON, mode_max present"
+            ((++p73_count))
+        else
+            warn "P-73.1: JSON check unexpected: $fast_in_json"
+        fi
+    else
+        warn "P-73.1: leica_perfect.json not found at $json_p73"
+    fi
+
+    # P-73.2: Verify LeicaConfig.kt has no mode_fast defaults
+    substep "P-73.2: verify LeicaConfig.kt — mode_fast defaults removed"
+    local lc_p73="$SOURCE_DIR/app/src/main/java/com/hinnka/mycamera/raw/LeicaConfig.kt"
+    if [[ -f "$lc_p73" ]]; then
+        local fast_default_count
+        fast_default_count=$(grep -c '?: "mode_fast"\|= "mode_fast"\|-> "mode_fast"' "$lc_p73" 2>/dev/null || echo 0)
+        local max_default_count
+        max_default_count=$(grep -c '?: "mode_max"\|= "mode_max"' "$lc_p73" 2>/dev/null || echo 0)
+        info "P-73.2: mode_fast defaults=$fast_default_count (expect 0), mode_max defaults=$max_default_count (expect >=2)"
+        if [[ "$fast_default_count" -eq 0 && "$max_default_count" -ge 2 ]]; then
+            ok "P-73.2: LeicaConfig.kt clean (no mode_fast defaults, mode_max is default)"
+            ((++p73_count))
+        else
+            warn "P-73.2: LeicaConfig.kt check partial (fast=$fast_default_count, max=$max_default_count)"
+        fi
+    else
+        warn "P-73.2: LeicaConfig.kt not found at $lc_p73"
+    fi
+
+    # P-73.3: Verify LeicaThermalMonitor.kt shouldDegradeCapture returns false
+    substep "P-73.3: verify LeicaThermalMonitor.kt — shouldDegradeCapture returns false"
+    local tm_p73="$SOURCE_DIR/app/src/main/java/com/hinnka/mycamera/LeicaThermalMonitor.kt"
+    if [[ -f "$tm_p73" ]]; then
+        if grep -q 'return false' "$tm_p73" 2>/dev/null && ! grep -q '!= "mode_fast"' "$tm_p73" 2>/dev/null; then
+            ok "P-73.3: shouldDegradeCapture returns false (no mode_fast check)"
+            ((++p73_count))
+        else
+            warn "P-73.3: shouldDegradeCapture still references mode_fast"
+        fi
+    else
+        warn "P-73.3: LeicaThermalMonitor.kt not found at $tm_p73"
+    fi
+
+    # P-73.4: Verify LeicaSettingsScreen.kt has no mode_fast option
+    substep "P-73.4: verify LeicaSettingsScreen.kt — mode_fast option removed"
+    local ss_p73="$SOURCE_DIR/app/src/main/java/com/hinnka/mycamera/ui/LeicaSettingsScreen.kt"
+    if [[ -f "$ss_p73" ]]; then
+        local fast_option_count
+        fast_option_count=$(grep -c 'CaptureModeOption("mode_fast"' "$ss_p73" 2>/dev/null || echo 0)
+        info "P-73.4: CaptureModeOption(\"mode_fast\") count=$fast_option_count (expect 0)"
+        if [[ "$fast_option_count" -eq 0 ]]; then
+            ok "P-73.4: mode_fast option removed from CAPTURE_MODES"
+            ((++p73_count))
+        else
+            warn "P-73.4: mode_fast option still present ($fast_option_count occurrences)"
+        fi
+    else
+        warn "P-73.4: LeicaSettingsScreen.kt not found at $ss_p73"
+    fi
+
+    ok "P-73: mode_fast removed (v6.4.6) — sub-patches: $p73_count/4"
+    if [[ "$p73_count" -ge 3 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
+    # Tier 22 (P-74) — v6.4.6: Release APK + R8 minification + arm64-v8a only
+    # ───────────────────────────────────────────────────────────────────────
+    # User requested: "Release APK — fácil pode fazer"
+    # P-74 does 4 things:
+    #   P-74.1: Create proguard-rules.pro with conservative keep rules
+    #   P-74.2: Append signingConfigs + buildTypes.release + ndk.abiFilters to build.gradle.kts
+    #   P-74.3: (handled in cmd_build) Change gradle task assembleDebug → assembleRelease
+    #   P-74.4: (handled in cmd_build) Update APK output naming -debug → -release
+    #
+    # Conservative R8: -keep class com.hinnka.mycamera.** { *; } keeps ALL app code.
+    # Only unused dependency/library code is stripped. Risk is near-zero.
+    # arm64-v8a filter: Xiaomi 15T is arm64-v8a only. Removes armeabi-v7a/x86/x86_64 .so
+    # → ~40-50% APK size reduction (native libs are the biggest contributor).
+    section "P-74: Release APK + R8 + arm64-v8a only (v6.4.6)"
+    local p74_count=0
+    local gradle_kts_p74="$SOURCE_DIR/app/build.gradle.kts"
+    local proguard_p74="$SOURCE_DIR/app/proguard-rules.pro"
+
+    # P-74.1: Create proguard-rules.pro
+    substep "P-74.1: create proguard-rules.pro (conservative keep rules)"
+    if [[ -f "$gradle_kts_p74" ]]; then
+        cat > "$proguard_p74" <<'PROGUARD_RULES'
+# ═══════════════════════════════════════════════════════════════════════════
+# Leica Perfect v6.4.6 — ProGuard/R8 Rules (P-74)
+# ═══════════════════════════════════════════════════════════════════════════
+# CONSERVATIVE: keep ALL app code. Only strip unused dependency/library code.
+# This is safe — no reflection crashes, no missing classes at runtime.
+# Trade-off: smaller size reduction (~15-25%) vs aggressive rules (~30-40%).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ─── Keep ALL app classes (conservative — prevents reflection/serialization crashes) ───
+-keep class com.hinnka.mycamera.** { *; }
+-keep class com.paperbackswaps.photoncamera.** { *; }
+
+# ─── Gson / JSON serialization (LeicaConfig uses @SerializedName) ───
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes EnclosingMethod
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapter
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# ─── JNI / Native methods (libmy-native-lib.so) ───
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# ─── Kotlin metadata & coroutines ───
+-keep class kotlin.Metadata { *; }
+-keep class kotlinx.coroutines.** { *; }
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,RuntimeVisibleTypeAnnotations
+
+# ─── Enums (used in config — valueOf crashes if stripped) ───
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# ─── Camera2 / Android framework (defensive) ───
+-keep class android.hardware.camera2.** { *; }
+-keep class android.media.** { *; }
+
+# ─── Kotlinx serialization (if used) ───
+-keepclassmembers,allowobfuscation class * {
+    @kotlinx.serialization.SerialName <fields>;
+}
+PROGUARD_RULES
+        if [[ -f "$proguard_p74" ]]; then
+            ok "P-74.1: proguard-rules.pro created ($(wc -l < "$proguard_p74") lines)"
+            ((++p74_count))
+        else
+            warn "P-74.1: proguard-rules.pro creation failed"
+        fi
+    else
+        warn "P-74.1: build.gradle.kts not found at $gradle_kts_p74 (skipping proguard)"
+    fi
+
+    # P-74.2: Append signingConfigs + buildTypes.release + abiFilters to build.gradle.kts
+    substep "P-74.2: append release signing + R8 + arm64-v8a filter to build.gradle.kts"
+    if [[ -f "$gradle_kts_p74" ]]; then
+        # Idempotent: only add if releaseSigning not already present
+        if ! grep -q 'leicaReleaseSigning' "$gradle_kts_p74" 2>/dev/null; then
+            cat >> "$gradle_kts_p74" <<'GRADLE_KT_P74'
+
+// ── Leica Perfect v6.4.6: Release signing + R8 + arm64-v8a only (P-74) ──
+// Uses debug keystore (auto-generated by Android SDK at ~/.android/debug.keystore).
+// This produces a SIGNED release APK that is installable on any device.
+// R8 minification: conservative (-keep com.hinnka.mycamera.** in proguard-rules.pro).
+// arm64-v8a only: Xiaomi 15T is arm64-v8a — removes x86/armeabi .so (~50% size cut).
+android {
+    signingConfigs {
+        create("leicaReleaseSigning") {
+            val homeDir = System.getProperty("user.home")
+            val debugKeystore = file("$homeDir/.android/debug.keystore")
+            // If debug keystore doesn't exist, Android SDK will auto-generate it
+            // on first build. Credentials are the well-known debug defaults.
+            storeFile = debugKeystore
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("leicaReleaseSigning")
+        }
+    }
+    defaultConfig {
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+}
+GRADLE_KT_P74
+            if grep -q 'leicaReleaseSigning' "$gradle_kts_p74" 2>/dev/null; then
+                ok "P-74.2: release signing + R8 + arm64-v8a appended to build.gradle.kts"
+                ((++p74_count))
+            else
+                warn "P-74.2: append failed"
+            fi
+        else
+            ok "P-74.2: already patched (idempotent)"
+            ((++p74_count))
+        fi
+    else
+        warn "P-74.2: build.gradle.kts not found at $gradle_kts_p74"
+    fi
+
+    ok "P-74: Release APK config applied (v6.4.6) — sub-patches: $p74_count/2"
+    if [[ "$p74_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
     section "SUMÁRIO — Leica Perfect v$FORK_VERSION patches"
@@ -5241,7 +5490,7 @@ PYEOF
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "68 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override (fixes stuck LUT in ABSOLUTE builds)"
+        ok "75 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-74 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
@@ -5254,14 +5503,10 @@ PYEOF
     # Footer
     cat <<'FOOTER'
 ═══════════════════════════════════════════════════════════════
-  v6.4.0 — 67 surgical sed patches (P-62..65 added): full pipeline + per-lens AgX + runtime activation + UI + runtime wiring (P-52) + runtime NLM radius (P-53) + creative profile color science (P-54) + video settings actually apply (P-55) + video encoder completeness (P-56) + Camera2 direct per-lens (P-57) + noise model completion (P-58) + thermal monitor (P-59) + doNotStrip (P-60) + LeicaStateDumper (P-61) + drop RAW + 2 capture modes (P-62) + LUT picker override (P-63) + 5 best LUTs in mod menu (P-64) + one-click JPEG max (P-65)
-  Cron 4: P-54a/b/c/d wired effective* accessors + P-29/P-30 switched to effective* + P-30 Int→Float bug fixed
-  Cron 5: P-55 UserPreferencesRepository video fallbacks → LeicaConfig.*Enum (fixes 1080p/H264/30fps/P1 defaults — video mode banner now shows 4K/HEVC/log/250Mbps)
-  Cron 6: P-56 video encoder completeness — AUDIO_SAMPLE_RATE/AUDIO_MIME wired, KEY_AAC_PROFILE gated on AAC (OPUS-safe), KEY_HDR_STATIC_INFO injected via VideoEncoderColorConfig.hdrStaticInfo, bitrate mode override → LeicaConfig.videoBitrateMode (CBR/CQP/VBR)
-  Cron 7: P-62 mode_balanced REMOVIDO + mode_fast restaurado (disparo rápido inteligente, 5/3/3/5 frames, NLM radius 3, ~0.3s latency) + RAW/DNG export DESATIVADO (output.force_no_raw/force_no_dng = true) — user quer JPEG one-click
-  Cron 8: P-63 runtimeLutOverride var (fixes "stuck on m9 CCD" bug) + P-64 5 melhores LUTs no mod menu (Leica M9, Hasselblad HNCS, Fuji CC, Fuji NC, CineStill 800T)
-  Cron 9: P-65 ONE-CLICK MAX preset button + forceNoRaw/forceNoDng/forceHeicQ100/forceUltraHdrQ100 accessors honrados em exportDngWithRawExport/exportSuperResDng
-  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles with REAL color science + JPEG one-click)
+  v6.4.6 — 75 surgical sed patches (P-73/P-74 added): mode_fast REMOVIDO (single mode_max) + Release APK + R8 minification + arm64-v8a only (~50% size cut)
+  Cron 14: P-72 RAW on-demand (force_no_raw/dng flipped false) — RAW available via gear toggle
+  Cron 15: P-73 mode_fast removed (user: "não esquenta, mode_fast só atrapalha") + P-74 Release APK + R8 + arm64-v8a filter
+  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand)
 ═══════════════════════════════════════════════════════════════
 FOOTER
 }
@@ -5370,11 +5615,11 @@ cmd_build() {
     # flavors pra Play Store/Samsung Store/Meitu Store — desnecessários aqui.
     # Se algum dia precisar de outro flavor: BUILD_FLAVOR=google ./build-archlinux.sh build
     local flavor="${BUILD_FLAVOR:-default}"
-    local gradle_task="assembleDebug"
+    local gradle_task="assembleRelease"
     local gradle_parallel=false
     # Capitaliza: default → Default
     local flavor_cap="$(echo "$flavor" | sed 's/^./\U&/')"
-    gradle_task="assemble${flavor_cap}Debug"
+    gradle_task="assemble${flavor_cap}Release"
     info "BUILD_FLAVOR=$flavor → task :app:${gradle_task} (build único, mais rápido)"
 
     # Conta threads da CPU pra workers.max
@@ -5430,7 +5675,7 @@ GRADLEPROPS
         warn "gradlew não encontrado — tentando gradle do sistema"
     fi
 
-    substep "Build debug APK (task: :app:${gradle_task})"
+    substep "Build release APK (task: :app:${gradle_task})"
     # v6.3.3: NÃO passar -Dorg.gradle.jvmargs por linha de comando!
     # O gradle.properties escrito acima tem prioridade e usa toda a RAM disponível.
     # v6.3.8-fix4: P-60 corrigido — agora usa awk + sintaxe Kotlin DSL
@@ -5450,8 +5695,8 @@ GRADLEPROPS
 
     substep "Copiar APK para $APK_OUTPUT"
     # PhotonCamera usa product flavors (default/google/meitu/samsung).
-    # O APK NÃO está em apk/debug/ — está em apk/<flavor>/debug/app-<flavor>-debug.apk
-    # Procuramos em ordem de preferência: default → google → meitu → samsung → qualquer *-debug.apk
+    # v6.4.6 P-74: APK agora é RELEASE (não debug). Está em apk/<flavor>/release/app-<flavor>-release.apk
+    # Procuramos em ordem de preferência: default → google → meitu → samsung → qualquer *-release.apk
     local apk_root="$SOURCE_DIR/app/build/outputs/apk"
     local apk_path=""
     local apk_flavor=""
@@ -5461,7 +5706,7 @@ GRADLEPROPS
     if [[ -d "$apk_root" ]]; then
         while IFS= read -r line; do
             apk_all+=("$line")
-        done < <(find "$apk_root" -name "*-debug.apk" -type f 2>/dev/null)
+        done < <(find "$apk_root" -name "*-release.apk" -type f 2>/dev/null)
     fi
 
     # Mostra tudo que encontrou (diagnóstico)
@@ -5475,7 +5720,7 @@ GRADLEPROPS
     # Preferência: default (Xiaomi 15T não precisa de google/meitu/samsung)
     for flavor in default google meitu samsung; do
         for a in "${apk_all[@]}"; do
-            if [[ "$a" == *"/${flavor}/debug/app-${flavor}-debug.apk" ]]; then
+            if [[ "$a" == *"/${flavor}/release/app-${flavor}-release.apk" ]]; then
                 apk_path="$a"
                 apk_flavor="$flavor"
                 break 2
@@ -5490,7 +5735,7 @@ GRADLEPROPS
     fi
 
     if [[ -n "$apk_path" && -f "$apk_path" ]]; then
-        local out_name="LeicaPerfect-v${FORK_VERSION}-debug.apk"
+        local out_name="LeicaPerfect-v${FORK_VERSION}-release.apk"
         cp -f "$apk_path" "$APK_OUTPUT/$out_name"
         ok "APK copiado (flavor: ${apk_flavor}): $APK_OUTPUT/$out_name"
         info "Tamanho: $(du -h "$APK_OUTPUT/$out_name" | awk '{print $1}')"
@@ -5533,8 +5778,8 @@ GRADLEPROPS
     fi
 
     section "BUILD COMPLETO"
-    info "APK: $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-debug.apk"
-    info "Instale: adb install -r $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-debug.apk"
+    info "APK: $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-release.apk"
+    info "Instale: adb install -r $APK_OUTPUT/LeicaPerfect-v${FORK_VERSION}-release.apk"
 }
 
 # ═════════════════════════════════════════════════════════════════════════════

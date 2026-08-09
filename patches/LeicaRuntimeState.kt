@@ -37,9 +37,8 @@ object LeicaRuntimeState {
     private const val KEY_CREATIVE_PROFILE = "creative_profile_override"
 
     /**
-     * Runtime override for capture mode. null = use JSON default (mode_fast).
-     * Valid values: "mode_max", "mode_fast"
-     * v6.4.0: mode_balanced removido; mode_fast substitui (disparo rapido inteligente).
+     * Runtime override for capture mode. null = use JSON default (mode_max).
+     * v6.4.6: mode_fast REMOVIDO (P-73). Agora SO mode_max é válido.
      */
     @Volatile
     @JvmField
@@ -106,19 +105,13 @@ object LeicaRuntimeState {
     }
 
     /**
-     * Cycle to the next capture mode: fast → max → fast.
-     * v6.4.0: mode_balanced removido; ciclo agora é fast <-> max.
-     * Returns the new mode ID.
+     * Cycle to the next capture mode.
+     * v6.4.6: mode_fast REMOVIDO (P-73). Agora SO mode_max existe — cycle é no-op.
+     * Retorna sempre "mode_max". Mantido por compatibilidade (CameraViewModel ainda chama).
      */
     fun cycleCaptureMode(): String {
-        val current = LeicaConfig.activeCaptureMode
-        val next = when (current) {
-            "mode_fast" -> "mode_max"
-            "mode_max" -> "mode_fast"
-            else -> "mode_fast"
-        }
-        setCaptureMode(next)
-        return next
+        setCaptureMode("mode_max")
+        return "mode_max"
     }
 
     private fun persist() {

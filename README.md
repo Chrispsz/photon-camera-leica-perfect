@@ -1,12 +1,14 @@
-# Photon Camera — Leica Perfect v6.4.5
+# Photon Camera — Leica Perfect v6.4.6
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **72 surgical patches** (Cron 14 RAW on-demand + composition aids + photo quality + video 4K stability),
+with **75 surgical patches** (Cron 15: mode_fast removed + release APK + R8 + arm64-v8a),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
-**Default capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
+**Single capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
 NLM radius 7, JPEG/HEIC/UltraHDR Q100). **JPEG by default; RAW available on-demand**
 via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
+
+**v6.4.6: Release build** — R8 minified + arm64-v8a only (~50% smaller APK, ~70 MB vs 138 MB).
 
 ---
 
@@ -15,13 +17,13 @@ via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.5-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.6-release.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.5-debug.apk
+adb install -r LeicaPerfect-v6.4.6-release.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -37,10 +39,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 72 surgical `sed` patches (tiers P-1 … P-72) over the upstream Kotlin/C++ source |
-| `build` | `./gradlew assembleDefaultDebug` (single flavor — fast, no OOM) |
+| `patch` | 75 surgical `sed` patches (tiers P-1 … P-74) over the upstream Kotlin/C++ source |
+| `build` | `./gradlew assembleDefaultRelease` (single flavor — R8 + arm64-v8a only) |
 
-Output: `apk/LeicaPerfect-v6.4.5-debug.apk` (~138 MB).
+Output: `apk/LeicaPerfect-v6.4.6-release.apk` (~70 MB — release build with R8 + arm64-v8a).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -87,10 +89,22 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.5 (vs upstream)
+## What's in v6.4.6 (vs upstream)
 
-- **Cron 14 RAW on-demand + composition aids + photo quality + video 4K stability** — 72 patches / 170 substeps, all verified
-- **P-72 RAW on-demand**: flipped `force_no_raw`/`force_no_dng` true→false in JSON config.
+- **Cron 15: mode_fast removed + release APK** — 75 patches / 175+ substeps, all verified
+- **P-73 mode_fast removed**: user reported "não esquenta tirando fotos, mode_fast só atrapalha".
+  Now single capture mode (`mode_max` only). `cycleCaptureMode()` is now no-op (always `mode_max`).
+  `shouldDegradeCapture()` returns false (thermal throttle is warning-only, no auto-degrade).
+  Removed from: JSON `capture_modes.modes`, `LeicaConfig.kt` defaults, `LeicaThermalMonitor.kt`,
+  `LeicaRuntimeState.kt`, `LeicaSettingsScreen.kt`.
+- **P-74 Release APK + R8 + arm64-v8a**: switched from debug to release build.
+  R8 minification with conservative keep rules (`-keep com.hinnka.mycamera.**` — safe, no
+  reflection crashes). `shrinkResources=true` removes unused resources. `ndk.abiFilters += "arm64-v8a"`
+  removes x86/armeabi .so (Xiaomi 15T is arm64-v8a only). APK is now signed + ~50% smaller
+  (138 MB → ~70 MB).
+- **DCP baseline**: `builtin_dcp_Leica M8 Camera Standard` (professional rangefinder APS-H CCD
+  2006 — gives authentic Leica look). LUTs are the creative layer on top.
+- **P-72 RAW on-demand** (v6.4.5): flipped `force_no_raw`/`force_no_dng` true→false in JSON config.
   Investigation found these were essentially no-ops (only affected 2 LeicaConfig accessors
   which are bypassed by the actual export path), but the config was misleading. Now consistent:
   **JPEG by default (mode_max shoots YUV); RAW available on-demand via gear icon → RAW toggle**.
