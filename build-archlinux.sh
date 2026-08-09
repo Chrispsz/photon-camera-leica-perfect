@@ -4,11 +4,12 @@
 # v6.4.0 (Cron 7): P-62 drop RAW + 2 capture modes (mode_max + mode_fast intelligent trigger)
 # v6.4.0 (Cron 8): P-63 LUT picker override (fixes stuck-on-m9-ccd) + P-64 5 best LUTs in mod menu
 # v6.4.0 (Cron 9): P-65 one-click JPEG max optimization (forceNoRaw + ONE-CLICK MAX button)
+# v6.4.7 (Cron 16): P-75 natural baseline — LUT "none" no perfil ativo + fix latent force_baseline_lut_id bug
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # DEFINITIVE QUALITY — MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles
 #
-# Aplica 67 patches cirúrgicos (sed) sobre o upstream bjzhou/PhotonCamera 1.26.1
+# Aplica 76 patches cirúrgicos (sed) sobre o upstream bjzhou/PhotonCamera 1.26.1
 # produzindo um APK com quality técnico no máximo arquitetural do Xiaomi 15T.
 #
 # Patches organizados em 7 tiers:
@@ -26,6 +27,9 @@
 #   Tier 12 (P-57..P-59):  v6.3.8 Camera2 direct params per-lens + noise model completion + thermal monitor
 #   Tier 13 (P-60..P-61):  v6.3.8-fix4 doNotStrip + LeicaStateDumper
 #   Tier 14 (P-62..P-65):  v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max
+#   Tier 21 (P-73):        v6.4.6 mode_fast removed (single mode_max)
+#   Tier 22 (P-74):        v6.4.6 Release APK + R8 + arm64-v8a only
+#   Tier 23 (P-75):        v6.4.7 natural baseline (LUT "none" no perfil ativo + fix latent force_baseline_lut_id)
 #
 # v6.3.5 (Cron 2 fixes): P-52a/b/c paths corrected, P-31 targeted L6801 only,
 #   P-32a bitrate pattern P5→P1, P-53a/b/c runtime NLM radius (C2/C3/C4 from
@@ -52,7 +56,7 @@
 #
 # Uso:
 #   ./build-archlinux.sh clone    # clona o upstream
-#   ./build-archlinux.sh patch    # aplica os 75 patches cirúrgicos (95+ substeps)
+#   ./build-archlinux.sh patch    # aplica os 76 patches cirúrgicos (95+ substeps)
 #   ./build-archlinux.sh build    # builda o APK
 #   ./build-archlinux.sh all      # faz tudo (clone + patch + build)
 #   ./build-archlinux.sh check    # bash -n syntax check
@@ -75,7 +79,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.6"
+readonly FORK_VERSION="6.4.7"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -214,7 +218,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 59 patches cirúrgicos (75 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 95 substeps cirúrgicos (64 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 96 substeps cirúrgicos (65 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5480,6 +5484,44 @@ GRADLE_KT_P74
     echo ""
 
     # ───────────────────────────────────────────────────────────────────────
+    # Tier 23 (P-75) — v6.4.7: Natural baseline — LUT "none" no perfil ativo + fix latent force_baseline_lut_id bug
+    # ───────────────────────────────────────────────────────────────────────
+    section "P-75: Natural baseline (LUT none) + fix latent baseline_lut_id bug (v6.4.7)"
+    local p75_count=0
+
+    # P-75.1: JSON check — active profile lut_id must be "none"
+    local json_cfg_p75="$SCRIPT_DIR/config/leica_perfect.json"
+    if [[ -f "$json_cfg_p75" ]]; then
+        # Pega o lut_id do perfil ativo leica_perfect_signature
+        local active_lut_id=$(grep -A 3 '"leica_perfect_signature"' "$json_cfg_p75" | grep '"lut_id"' | head -1 | sed -E 's/.*"lut_id"\s*:\s*"([^"]+)".*/\1/')
+        if [[ "$active_lut_id" == "none" ]]; then
+            ok "P-75.1: active profile lut_id=\"none\" confirmed (natural baseline — DCP Leica M8 + AgX + sharpening, NO creative LUT)"
+            ((++p75_count))
+        else
+            warn "P-75.1: expected lut_id=\"none\", got \"$active_lut_id\" — natural baseline NOT applied"
+        fi
+
+        # P-75.2: JSON check — force_baseline_lut_id must be "none" (fix latent bug — was "Leica_M9_STD" which never resolved)
+        local force_bl_lut=$(grep '"force_baseline_lut_id"' "$json_cfg_p75" | head -1 | sed -E 's/.*"force_baseline_lut_id"\s*:\s*"([^"]+)".*/\1/')
+        if [[ "$force_bl_lut" == "none" ]]; then
+            ok "P-75.2: force_baseline_lut_id=\"none\" confirmed (latent bug fixed — was \"Leica_M9_STD\" which never resolved in LutManager.getLutInfo case-sensitive match)"
+            ((++p75_count))
+        else
+            warn "P-75.2: expected force_baseline_lut_id=\"none\", got \"$force_bl_lut\" — latent bug NOT fixed"
+        fi
+    else
+        warn "P-75: leica_perfect.json not found at $json_cfg_p75"
+    fi
+
+    ok "P-75: Natural baseline applied (v6.4.7) — sub-patches: $p75_count/2"
+    if [[ "$p75_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
     section "SUMÁRIO — Leica Perfect v$FORK_VERSION patches"
@@ -5490,7 +5532,7 @@ GRADLE_KT_P74
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "75 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-74 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only"
+        ok "76 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-75 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
@@ -5503,10 +5545,11 @@ GRADLE_KT_P74
     # Footer
     cat <<'FOOTER'
 ═══════════════════════════════════════════════════════════════
-  v6.4.6 — 75 surgical sed patches (P-73/P-74 added): mode_fast REMOVIDO (single mode_max) + Release APK + R8 minification + arm64-v8a only (~50% size cut)
+  v6.4.7 — 76 surgical sed patches (P-75 added): natural baseline (LUT "none" no perfil ativo) + fix latent force_baseline_lut_id bug (era "Leica_M9_STD" que nunca resolvia em LutManager case-sensitive)
   Cron 14: P-72 RAW on-demand (force_no_raw/dng flipped false) — RAW available via gear toggle
   Cron 15: P-73 mode_fast removed (user: "não esquenta, mode_fast só atrapalha") + P-74 Release APK + R8 + arm64-v8a filter
-  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand)
+  Cron 16: P-75 natural baseline — LUT "none" no perfil leica_perfect_signature + fix latent force_baseline_lut_id (era "Leica_M9_STD")
+  Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand + natural baseline + LUT on-demand)
 ═══════════════════════════════════════════════════════════════
 FOOTER
 }

@@ -109,7 +109,7 @@
   },
   "dcp": {
     "force_dcp_id": "builtin_dcp_Leica M8 Camera Standard",
-    "force_baseline_lut_id": "Leica_M9_STD",
+    "force_baseline_lut_id": "none",
     "dcp_ratio_warm": 0.52,
     "dcp_ratio_cool": 1.62,
     "force_heic_export": true,
@@ -693,7 +693,7 @@
         "best_lens": "main"
       },
       "leica_perfect_signature": {
-        "lut_id": "leica_m9",
+        "lut_id": "none",
         "dcp_id": "builtin_dcp_Leica M8 Camera Standard",
         "frame_id": "leica",
         "tone_contrast_boost": 0.08,

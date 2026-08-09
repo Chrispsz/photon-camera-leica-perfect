@@ -1,12 +1,18 @@
-# Photon Camera — Leica Perfect v6.4.6
+# Photon Camera — Leica Perfect v6.4.7
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **75 surgical patches** (Cron 15: mode_fast removed + release APK + R8 + arm64-v8a),
+with **76 surgical patches** (Cron 16: natural baseline — LUT "none" no perfil ativo),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Single capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
 NLM radius 7, JPEG/HEIC/UltraHDR Q100). **JPEG by default; RAW available on-demand**
 via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
+
+**v6.4.7: Natural baseline** — LUT `"none"` no perfil ativo (`leica_perfect_signature`).
+Saída padrão = **DCP Leica M8 + AgX + sharpening** (sem LUT criativa forçada).
+Usuário aplica LUT criativa (Leica M9, Hasselblad, Fuji, ...) via mod menu on-demand.
+Também corrige bug latente em `force_baseline_lut_id` (era `"Leica_M9_STD"` que nunca
+resolvia no `LutManager.getLutInfo` case-sensitive).
 
 **v6.4.6: Release build** — R8 minified + arm64-v8a only (~50% smaller APK, ~70 MB vs 138 MB).
 
@@ -17,13 +23,13 @@ via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.6-release.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.7-release.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.6-release.apk
+adb install -r LeicaPerfect-v6.4.7-release.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -39,10 +45,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 75 surgical `sed` patches (tiers P-1 … P-74) over the upstream Kotlin/C++ source |
+| `patch` | 76 surgical `sed` patches (tiers P-1 … P-75) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultRelease` (single flavor — R8 + arm64-v8a only) |
 
-Output: `apk/LeicaPerfect-v6.4.6-release.apk` (~70 MB — release build with R8 + arm64-v8a).
+Output: `apk/LeicaPerfect-v6.4.7-release.apk` (~70 MB — release build with R8 + arm64-v8a).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -89,8 +95,19 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.6 (vs upstream)
+## What's in v6.4.7 (vs upstream)
 
+- **Cron 16: Natural baseline** — 76 patches / 175+ substeps, all verified
+- **P-75 natural baseline (LUT none)**: investigation (`9-a` no worklog) confirmou que o
+  perfil ativo `leica_perfect_signature` forçava LUT `leica_m9` (Kodak M9 CCD magenta/blue).
+  Agora `lut_id="none"` → sentinel que pula LUT no `LutManager.loadLut()` (path="" → retorna
+  null → `uLutEnabled=0` → GLSL LUT block skipped). Resultado: imagem = **DCP Leica M8 + AgX
+  + sharpening** (caminho natural, sem desvio criativo forçado). Usuário aplica LUT criativa
+  via mod menu on-demand (`runtimeLutOverride`).
+- **P-75 latent bug fix**: `force_baseline_lut_id` era `"Leica_M9_STD"` (filename do .plut)
+  mas `LutManager.getLutInfo` usa match case-sensitive por ID (`"leica_m9"`). Ou seja, se o
+  usuário ativasse o perfil `leica_authentic` (baseline), a LUT seria silenciosamente pulada.
+  Agora `force_baseline_lut_id="none"` → sentinel explícito, sem bug latente.
 - **Cron 15: mode_fast removed + release APK** — 75 patches / 175+ substeps, all verified
 - **P-73 mode_fast removed**: user reported "não esquenta tirando fotos, mode_fast só atrapalha".
   Now single capture mode (`mode_max` only). `cycleCaptureMode()` is now no-op (always `mode_max`).
