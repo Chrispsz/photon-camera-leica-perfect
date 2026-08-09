@@ -1,8 +1,8 @@
-# Photon Camera — Leica Perfect v6.4.2
+# Photon Camera — Leica Perfect v6.4.3
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **68 surgical patches** (Cron 11 LUT-picker live-preview fix), optimized for the
-**Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
+with **70 surgical patches** (Cron 12 photo quality + video 4K stability fix),
+optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Default capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
 NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click).
@@ -14,13 +14,13 @@ NLM radius 7, JPEG/HEIC/UltraHDR Q100). RAW/DNG export disabled (JPEG one-click)
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.2-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.3-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.2-debug.apk
+adb install -r LeicaPerfect-v6.4.3-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -36,10 +36,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 68 surgical `sed` patches (tiers P-1 … P-68) over the upstream Kotlin/C++ source |
+| `patch` | 70 surgical `sed` patches (tiers P-1 … P-70) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — fast, no OOM) |
 
-Output: `apk/LeicaPerfect-v6.4.2-debug.apk` (~138 MB).
+Output: `apk/LeicaPerfect-v6.4.3-debug.apk` (~138 MB).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -86,16 +86,21 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.2 (vs upstream)
+## What's in v6.4.3 (vs upstream)
 
-- **Cron 11 LUT-picker live-preview fix** — 68 patches / 159 substeps, all verified
-- **v6.4.2 P-68**: LUT picker now actually changes the live preview (P-52a shadowing
-  respects `runtimeLutOverride` — the user's pick flows through to `currentLutConfig`)
+- **Cron 12 photo quality + video 4K stability** — 70 patches / 165 substeps, all verified
+- **P-69 photo quality defaults** (8 settings): NR Off (software NLM handles it),
+  Sharpening HQ, JPEG Q100, JPEG 4:4:4 + Ultra HDR, tone mapping preview+capture fix,
+  P010 10-bit YUV, JPGmax HDR composition. **Clear Data after install to apply.**
+- **P-70 video 4K stability fix**: bitrate 250→120 Mbps (P4 — visually lossless,
+  encoder can keep up), muxer.stop() failure no longer silent (propagates to UI +
+  keeps partial file for recovery), writeSampleData frame drops upgraded to PLog.e
+- **v6.4.2 P-68**: live preview LUT picker fix (P-52a respects runtimeLutOverride)
 - `mode_max` as the active default (was `mode_fast`)
 - `mode_balanced` removed; RAW/DNG export disabled (one-click JPEG)
 - Per-lens AgX tone mapping, NLM, frame counts, DCP ratios
 - 26 creative profiles (Leica Authentic, Leica Monochrome, Hasselblad HNCS, Fuji, …)
 - doNotStrip for all `.so` (fixes JVM crash on `libBugly_Native.so` with NDK r29)
-- Video: HEVC 250 Mbps, HDR10, AAC 256k (mode_max)
+- Video: HEVC 120 Mbps (was 250 — stability), HDR10, AAC 256k (mode_max)
 
 ⚠️ Use at your own risk. Modifies upstream open-source code (Apache 2.0 / GPL).

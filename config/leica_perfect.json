@@ -22,7 +22,7 @@
         "nlm_search_radius": 7,
         "force_rawmax": false,
         "export_super_res_dng": false,
-        "video_bitrate_mbps": 250,
+        "video_bitrate_mbps": 120,
         "thermal_throttle_at_c": 45
       },
       "mode_fast": {
@@ -279,9 +279,9 @@
     "per_channel_tint_blue": 0
   },
   "video": {
-    "_comment": "MAX VIDEO — HEVC 250Mbps (mode_max) / 120Mbps (balanced) / 80Mbps (fast). B-frames=2, log, 4K30, HDR10, AAC 256k.",
+    "_comment": "MAX VIDEO — HEVC 120Mbps (mode_max, was 250 — stability fix P-70) / 100Mbps (fast). B-frames=2, log, 4K30, HDR10, AAC 256k.",
     "codec": "hevc",
-    "bitrate_mbps": 250,
+    "bitrate_mbps": 120,
     "max_b_frames": 2,
     "color_profile": "log",
     "default_resolution": "2160p",

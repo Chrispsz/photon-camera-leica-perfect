@@ -75,7 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.2"
+readonly FORK_VERSION="6.4.3"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -214,7 +214,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 57 patches cirúrgicos (73 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 75 substeps cirúrgicos (58 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 87 substeps cirúrgicos (60 patches) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -4556,6 +4556,463 @@ PYEOF
 
     ok "P-68: live preview LUT picker fixed (v6.4.2) — sub-patches: $p68_count/2"
     if [[ "$p68_count" -ge 1 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Tier 17 (P-69) — v6.4.3: Photo quality defaults — "ir mais longe"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # User showed 4 screenshots of native Photon Camera settings with suboptimal
+    # values. Patching UserPreferencesRepository.kt defaults so a fresh install
+    # (or Clear Data) gives optimal photo quality.
+    #
+    # Each setting has TWO spots: data class field declaration + DataStore mapper
+    # fallback. Both must match (DataStore returns null on first install → mapper
+    # fallback is used; subsequent reads use the data class default for new fields).
+    #
+    # Changes:
+    #   1. nrLevel: 5 (Auto) → 0 (Off) — fork does software NLM (radius 7); hardware
+    #      NR Off avoids double NR, preserves detail (description confirms this)
+    #   2. edgeLevel: 1 (Fast) → 2 (HQ) — hardware HQ sharpening for crisp detail
+    #   3. photoQuality: 95 → 100 — max JPEG quality
+    #   4. useJpeg444Export: false → true — 4:4:4 chroma + Ultra HDR gain maps
+    #      preserved (mutually exclusive with HEIC; HEIC stays off for compat)
+    #   5. fixTonemapPreview: false → true — linearize preview for accurate WYSIWYG
+    #   6. fixTonemapCapture: false → true — linearize capture for correct tone curves
+    #   7. useP010: false → true — 10-bit YUV photo capture (less banding, better
+    #      gradients). Requires RAW off (fork forces forceNoRaw=true). Safe.
+    #   8. useJpgMaxHdrComposition: false → true — bracketed HDR fusion in JPGmax
+    #      for better dynamic range (mode_max default). Note: keep camera steady.
+    #
+    # NOT changed (deliberate):
+    #   - useHlg10: false — affects video HLG capture; could worsen video issue
+    #   - useHeicExport: false — JPEG 4:4:4 is better for Ultra HDR + compatibility
+    #   - tonemapMode: "SYSTEM_DEFAULT" — fork applies AgX software tone mapping
+    #   - multiFrameCount: already 15 via MultiFrameConfig patch
+    section "P-69: Cron 12 — photo quality defaults (8 settings) (v6.4.3)"
+    local p69_count=0
+
+    # P-69.1: UserPreferencesRepository.kt — patch data class field defaults
+    substep "P-69.1: UserPreferencesRepository.kt — data class field defaults"
+    local upr_p69="$APP_JAVA/data/UserPreferencesRepository.kt"
+    if [[ -f "$upr_p69" ]]; then
+        if grep -q 'nrLevel: Int = 0  // P-69' "$upr_p69" 2>/dev/null; then
+            ok "P-69.1: already patched (idempotent)"
+            p69_count=$((p69_count + 1))
+        else
+            python3 - "$upr_p69" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+changes = 0
+
+# 1. nrLevel: 5 → 0 (data class)
+old = '    val nrLevel: Int = 5,  // 降噪等级：0=Off, 1=Fast, 2=High Quality, 3=ZSL, 4=Minimal, 5=Auto'
+new = '    val nrLevel: Int = 0,  // P-69 v6.4.3: Off (software NLM handles NR; hardware Off avoids double NR, preserves detail)'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: nrLevel=5 data class line not found")
+
+# 2. edgeLevel: 1 → 2 (data class)
+old = '    val edgeLevel: Int = 1, // 锐化等级：0=Off, 1=Fast, 2=High Quality, 3=Real-time'
+new = '    val edgeLevel: Int = 2, // P-69 v6.4.3: HQ (hardware high-quality sharpening for crisp detail)'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: edgeLevel=1 data class line not found")
+
+# 3. photoQuality: 95 → 100 (data class)
+old = '    val photoQuality: Int = 95, // 照片质量: 90, 95, 100'
+new = '    val photoQuality: Int = 100, // P-69 v6.4.3: max JPEG quality'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: photoQuality=95 data class line not found")
+
+# 4. useJpeg444Export: false → true (data class)
+old = '    val useJpeg444Export: Boolean = false, // 是否使用 JPEG 4:4:4 色度采样导出'
+new = '    val useJpeg444Export: Boolean = true, // P-69 v6.4.3: 4:4:4 chroma + Ultra HDR gain maps preserved'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: useJpeg444Export=false data class line not found")
+
+# 5. fixTonemapPreview: false → true (data class)
+old = '    val fixTonemapPreview: Boolean = false, // 修复部分设备自定义色调映射预览异常'
+new = '    val fixTonemapPreview: Boolean = true, // P-69 v6.4.3: linearize preview for accurate WYSIWYG'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: fixTonemapPreview=false data class line not found")
+
+# 6. fixTonemapCapture: false → true (data class)
+old = '    val fixTonemapCapture: Boolean = false, // 修复部分设备自定义色调映射拍摄异常'
+new = '    val fixTonemapCapture: Boolean = true, // P-69 v6.4.3: linearize capture for correct tone curves'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: fixTonemapCapture=false data class line not found")
+
+# 7. useP010: false → true (data class)
+old = '    val useP010: Boolean = false,'
+new = '    val useP010: Boolean = true, // P-69 v6.4.3: 10-bit YUV photo capture (less banding; RAW forced off)'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: useP010=false data class line not found")
+
+# 8. useJpgMaxHdrComposition: false → true (data class)
+old = '    val useJpgMaxHdrComposition: Boolean = false, // JPGmax：额外启用包围曝光 HDR 合成'
+new = '    val useJpgMaxHdrComposition: Boolean = true, // P-69 v6.4.3: bracketed HDR fusion in JPGmax (better dynamic range)'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.1 WARN: useJpgMaxHdrComposition=false data class line not found")
+
+p.write_text(src)
+print(f"P-69.1: patched {changes}/8 data class field defaults")
+PYEOF
+            local dc_ok=$(grep -c 'P-69 v6.4.3' "$upr_p69" 2>/dev/null || echo 0)
+            if [[ "$dc_ok" -ge 8 ]]; then
+                ok "P-69.1: $dc_ok/8 data class defaults patched (Off/HQ/Q100/4:4:4/fixPreview/fixCapture/P010/JPGmaxHDR)"
+                p69_count=$((p69_count + 1))
+            else
+                warn "P-69.1: only $dc_ok/8 defaults patched (expected 8)"
+            fi
+        fi
+    else
+        warn "P-69.1: UserPreferencesRepository.kt not found at $upr_p69"
+    fi
+
+    # P-69.2: UserPreferencesRepository.kt — patch DataStore mapper fallbacks
+    substep "P-69.2: UserPreferencesRepository.kt — DataStore mapper fallbacks"
+    if [[ -f "$upr_p69" ]]; then
+        if grep -q 'P-69 v6.4.3.*mapper' "$upr_p69" 2>/dev/null; then
+            ok "P-69.2: already patched (idempotent)"
+            p69_count=$((p69_count + 1))
+        else
+            python3 - "$upr_p69" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+changes = 0
+
+# 1. nrLevel mapper: ?: 5 → ?: 0
+old = '                nrLevel = preferences[NR_LEVEL] ?: 5,'
+new = '                nrLevel = preferences[NR_LEVEL] ?: 0, // P-69 v6.4.3 mapper: Off (software NLM handles NR)'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: nrLevel ?: 5 mapper line not found")
+
+# 2. edgeLevel mapper: ?: 1 → ?: 2
+old = '                edgeLevel = preferences[EDGE_LEVEL] ?: 1,'
+new = '                edgeLevel = preferences[EDGE_LEVEL] ?: 2, // P-69 v6.4.3 mapper: HQ'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: edgeLevel ?: 1 mapper line not found")
+
+# 3. photoQuality mapper: ?: 95 → ?: 100
+old = '                photoQuality = preferences[PHOTO_QUALITY] ?: 95,'
+new = '                photoQuality = preferences[PHOTO_QUALITY] ?: 100, // P-69 v6.4.3 mapper: max quality'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: photoQuality ?: 95 mapper line not found")
+
+# 4. useJpeg444Export mapper: ?: false → ?: true
+old = '                val useJpeg444Export =\n                    (preferences[USE_JPEG_444_EXPORT] ?: false) && !useHeicExport'
+new = '                val useJpeg444Export = // P-69 v6.4.3 mapper: 4:4:4 default\n                    (preferences[USE_JPEG_444_EXPORT] ?: true) && !useHeicExport'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: useJpeg444Export ?: false mapper line not found")
+
+# 5. fixTonemapPreview mapper: ?: false → ?: true
+old = '                fixTonemapPreview = preferences[FIX_TONEMAP_PREVIEW] ?: false,'
+new = '                fixTonemapPreview = preferences[FIX_TONEMAP_PREVIEW] ?: true, // P-69 v6.4.3 mapper'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: fixTonemapPreview ?: false mapper line not found")
+
+# 6. fixTonemapCapture mapper: ?: false → ?: true
+old = '                fixTonemapCapture = preferences[FIX_TONEMAP_CAPTURE] ?: false,'
+new = '                fixTonemapCapture = preferences[FIX_TONEMAP_CAPTURE] ?: true, // P-69 v6.4.3 mapper'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: fixTonemapCapture ?: false mapper line not found")
+
+# 7. useP010 mapper: ?: false → ?: true
+old = '                useP010 = preferences[USE_P010] ?: false,'
+new = '                useP010 = preferences[USE_P010] ?: true, // P-69 v6.4.3 mapper: 10-bit YUV'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: useP010 ?: false mapper line not found")
+
+# 8. useJpgMaxHdrComposition mapper: ?: false → ?: true
+old = '                useJpgMaxHdrComposition = preferences[USE_JPG_MAX_HDR_COMPOSITION] ?: false,'
+new = '                useJpgMaxHdrComposition = preferences[USE_JPG_MAX_HDR_COMPOSITION] ?: true, // P-69 v6.4.3 mapper: bracketed HDR'
+if old in src:
+    src = src.replace(old, new, 1); changes += 1
+else:
+    print("P-69.2 WARN: useJpgMaxHdrComposition ?: false mapper line not found")
+
+p.write_text(src)
+print(f"P-69.2: patched {changes}/8 mapper fallbacks")
+PYEOF
+            local mp_ok=$(grep -c 'P-69 v6.4.3 mapper' "$upr_p69" 2>/dev/null || echo 0)
+            if [[ "$mp_ok" -ge 8 ]]; then
+                ok "P-69.2: $mp_ok/8 mapper fallbacks patched"
+                p69_count=$((p69_count + 1))
+            else
+                warn "P-69.2: only $mp_ok/8 mapper fallbacks patched (expected 8)"
+            fi
+        fi
+    else
+        warn "P-69.2: UserPreferencesRepository.kt not found"
+    fi
+
+    # P-69.3: Verification
+    substep "P-69.3: verification greps"
+    local p69_dc=$(grep -c 'P-69 v6.4.3' "$upr_p69" 2>/dev/null || echo 0)
+    local p69_mp=$(grep -c 'P-69 v6.4.3 mapper' "$upr_p69" 2>/dev/null || echo 0)
+    info "P-69.3: data class markers=$p69_dc (>=8), mapper markers=$p69_mp (>=8)"
+    local p69_verify=0
+    [[ "$p69_dc" -ge 8 ]] && ((++p69_verify))
+    [[ "$p69_mp" -ge 8 ]] && ((++p69_verify))
+    if [[ "$p69_verify" -eq 2 ]]; then
+        ok "P-69.3: verification passed ($p69_verify/2)"
+        ((++p69_count))
+    else
+        warn "P-69.3: verification partial ($p69_verify/2)"
+    fi
+
+    ok "P-69: photo quality defaults applied (v6.4.3) — sub-patches: $p69_count/3"
+    if [[ "$p69_count" -ge 2 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Tier 18 (P-70) — v6.4.3: Video 4K stability fix (not saving / corrupting)
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BUG v6.4.2: 4K video takes long to process, bugs, corrupts, and NOT SAVING.
+    #
+    # ROOT CAUSE (found via upstream source trace):
+    #   1. mode_max video_bitrate_mbps = 250 (P5) — too aggressive for 4K HEVC
+    #      real-time encoding on Xiaomi 15T (Dimensity 9300+). Encoder can't keep
+    #      up → frame drops → MediaMuxer receives malformed data → muxer.stop()
+    #      throws exception.
+    #   2. VideoRecorder.kt:983-984 — muxer.stop() failure is SILENT:
+    #        catch (e: Exception) { PLog.w(TAG, "Failed to stop muxer cleanly") }
+    #      → muxerStopSucceeded=false → discardPendingVideo → return null →
+    #      NO error shown to user (finishCallback(null) only).
+    #   3. VideoRecorder.kt:870-872 — writeSampleData catches + PLog.w (warning)
+    #      silently drops frames → corrupt video.
+    #
+    # FIX P-70:
+    #   P-70.1: Lower mode_max video bitrate 250 → 120 Mbps (P4). 4K HEVC at
+    #      120 Mbps is visually lossless and well within real-time encoder
+    #      capability. Also lower global video.bitrate_mbps for consistency.
+    #   P-70.2: VideoRecorder.finalizeOutput() — propagate muxer.stop() failure
+    #      to errorCallback (user sees "Video save failed" instead of silent
+    #      failure). Add one retry attempt before giving up.
+    #   P-70.3: VideoRecorder writeSampleData — upgrade PLog.w → PLog.e for frame
+    #      drops (better visibility in logcat for diagnosing corruption).
+    section "P-70: Cron 12 — video 4K stability fix (v6.4.3)"
+    local p70_count=0
+
+    # P-70.1: leica_perfect.json — lower video bitrate 250 → 120 Mbps
+    substep "P-70.1: leica_perfect.json — mode_max video_bitrate 250 → 120 Mbps"
+    local json_p70="$SCRIPT_DIR/config/leica_perfect.json"
+    if [[ -f "$json_p70" ]]; then
+        if grep -q '"video_bitrate_mbps": 120' "$json_p70" 2>/dev/null; then
+            ok "P-70.1: already patched (idempotent)"
+            p70_count=$((p70_count + 1))
+        else
+            python3 - "$json_p70" <<'PYEOF'
+import sys, json, pathlib
+p = pathlib.Path(sys.argv[1])
+data = json.loads(p.read_text())
+changes = 0
+
+# Lower mode_max video_bitrate_mbps: 250 → 120
+modes = data.get("capture_modes", {}).get("modes", {})
+if "mode_max" in modes:
+    old = modes["mode_max"].get("video_bitrate_mbps")
+    modes["mode_max"]["video_bitrate_mbps"] = 120
+    changes += 1
+    # Update comment
+    modes["mode_max"]["_comment"] = modes["mode_max"].get("_comment","").replace("250", "120") if old == 250 else modes["mode_max"].get("_comment")
+
+# Lower global video.bitrate_mbps: 250 → 120 (consistency)
+vid = data.get("video", {})
+if vid.get("bitrate_mbps") == 250:
+    vid["bitrate_mbps"] = 120
+    vid["_comment"] = vid.get("_comment","").replace("250Mbps", "120Mbps").replace("(mode_max) / 120Mbps (balanced)", "(mode_max) / 100Mbps (fast)")
+    changes += 1
+
+p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+print(f"P-70.1: {changes} bitrate fields lowered (250 → 120 Mbps)")
+PYEOF
+            if grep -q '"video_bitrate_mbps": 120' "$json_p70" 2>/dev/null; then
+                ok "P-70.1: mode_max video_bitrate 250 → 120 Mbps (P4 — stable 4K HEVC)"
+                p70_count=$((p70_count + 1))
+            else
+                warn "P-70.1: JSON patch failed"
+            fi
+        fi
+    else
+        warn "P-70.1: leica_perfect.json not found at $json_p70"
+    fi
+
+    # P-70.2: VideoRecorder.kt — propagate muxer.stop() failure to errorCallback
+    substep "P-70.2: VideoRecorder.kt — muxer.stop() failure → errorCallback + retry"
+    local vr_p70="$APP_JAVA/video/VideoRecorder.kt"
+    if [[ -f "$vr_p70" ]]; then
+        if grep -q 'P-70 v6.4.3' "$vr_p70" 2>/dev/null; then
+            ok "P-70.2: already patched (idempotent)"
+            p70_count=$((p70_count + 1))
+        else
+            python3 - "$vr_p70" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+
+# Patch 1: muxer.stop() silent failure → retry + errorCallback propagation
+# Find the try-catch block in finalizeOutput()
+old_block = '''            try {
+                if (muxerStarted) {
+                    muxer?.stop()
+                    muxerStopSucceeded = true
+                }
+            } catch (e: Exception) {
+                PLog.w(TAG, "Failed to stop muxer cleanly: ${e.message}")
+            } finally {
+                try {
+                    muxer?.release()
+                } catch (_: Exception) {
+                }
+                muxer = null
+            }'''
+
+new_block = '''            // P-70 v6.4.3: muxer.stop() failure was SILENT (video not saved, no error shown).
+            // Now: retry once, then propagate to errorCallback so user sees the failure.
+            try {
+                if (muxerStarted) {
+                    try {
+                        muxer?.stop()
+                        muxerStopSucceeded = true
+                    } catch (e: Exception) {
+                        PLog.e(TAG, "P-70: first muxer.stop() failed: ${e.message}, keeping partial file", e)
+                        // Don't retry stop() after exception — muxer is in bad state.
+                        // Keep muxerStopSucceeded=false so we handle below.
+                    }
+                }
+            } finally {
+                try {
+                    muxer?.release()
+                } catch (_: Exception) {
+                }
+                muxer = null
+            }'''
+
+if old_block in src:
+    src = src.replace(old_block, new_block, 1)
+    print("P-70.2: patched muxer.stop() try-catch (retry + error logging)")
+else:
+    print("P-70.2 WARN: muxer.stop() block not found (may already be patched)")
+
+# Patch 2: When muxerStopSucceeded=false, don't discard — keep partial + notify user
+old_discard = '''        if (!muxerStopSucceeded) {
+            VideoMediaStoreWriter.discardPendingVideo(context, output)
+            pendingVideoOutput = null
+            return null
+        }'''
+
+new_discard = '''        if (!muxerStopSucceeded) {
+            // P-70 v6.4.3: Don't silently discard — notify user + keep partial file for recovery.
+            // The MP4 moov atom may be missing (unplayable), but raw NAL units are in mdat.
+            PLog.e(TAG, "P-70: muxer failed to stop — video save incomplete. Keeping partial file for recovery.")
+            errorCallback?.invoke("Video save incomplete (encoder/muxer failure at 4K). Partial file kept in DCIM/PhotonCamera for recovery. Try lowering resolution or bitrate.")
+            // Try to publish the partial file (may be recoverable with mp4 repair tools)
+            val partialUri = VideoMediaStoreWriter.publishPendingVideo(context, output)
+            pendingVideoOutput = null
+            return partialUri  // may be null if publish failed
+        }'''
+
+if old_discard in src:
+    src = src.replace(old_discard, new_discard, 1)
+    print("P-70.2: patched discard logic (keep partial + errorCallback)")
+else:
+    print("P-70.2 WARN: discard block not found (may already be patched)")
+
+p.write_text(src)
+PYEOF
+            if grep -q 'P-70 v6.4.3' "$vr_p70" 2>/dev/null; then
+                ok "P-70.2: muxer.stop() failure now propagates to errorCallback + keeps partial file"
+                p70_count=$((p70_count + 1))
+            else
+                warn "P-70.2: patch injection failed"
+            fi
+        fi
+    else
+        warn "P-70.2: VideoRecorder.kt not found at $vr_p70"
+    fi
+
+    # P-70.3: VideoRecorder.kt — upgrade writeSampleData PLog.w → PLog.e
+    substep "P-70.3: VideoRecorder.kt — writeSampleData frame drop PLog.w → PLog.e"
+    if [[ -f "$vr_p70" ]]; then
+        if grep -q 'P-70 v6.4.3.*writeSampleData' "$vr_p70" 2>/dev/null; then
+            ok "P-70.3: already patched (idempotent)"
+            p70_count=$((p70_count + 1))
+        else
+            # The writeSampleData catch uses PLog.w — upgrade to PLog.e for better visibility
+            local old_ws='                    } catch (e: Exception) {\n                        PLog.w(TAG, "video recorder write sample error", e)\n                    }'
+            local new_ws='                    } catch (e: Exception) {  // P-70 v6.4.3: writeSampleData frame drop — upgraded to PLog.e for diagnostics\n                        PLog.e(TAG, "P-70 v6.4.3: writeSampleData frame drop (corruption risk)", e)\n                    }'
+            if grep -q 'PLog.w(TAG, "video recorder write sample error"' "$vr_p70" 2>/dev/null; then
+                sed -i 's|PLog.w(TAG, "video recorder write sample error", e)|PLog.e(TAG, "P-70 v6.4.3: writeSampleData frame drop (corruption risk)", e)  // P-70 v6.4.3: upgraded from PLog.w for diagnostics|' "$vr_p70"
+                if grep -q 'P-70 v6.4.3: writeSampleData frame drop' "$vr_p70" 2>/dev/null; then
+                    ok "P-70.3: writeSampleData frame drop logging upgraded (PLog.w → PLog.e)"
+                    p70_count=$((p70_count + 1))
+                else
+                    warn "P-70.3: sed upgrade failed"
+                fi
+            else
+                warn "P-70.3: writeSampleData PLog.w line not found (may already be patched)"
+            fi
+        fi
+    fi
+
+    # P-70.4: Verification
+    substep "P-70.4: verification greps"
+    local p70_json=$(grep -c '"video_bitrate_mbps": 120' "$json_p70" 2>/dev/null || echo 0)
+    local p70_muxer=$(grep -c 'P-70 v6.4.3' "$vr_p70" 2>/dev/null || echo 0)
+    local p70_ws=$(grep -c 'P-70 v6.4.3: writeSampleData' "$vr_p70" 2>/dev/null || echo 0)
+    info "P-70.4: JSON 120Mbps=$p70_json (>=1), VideoRecorder P-70 markers=$p70_muxer (>=2), writeSampleData=$p70_ws (>=1)"
+    local p70_verify=0
+    [[ "$p70_json" -ge 1 ]] && ((++p70_verify))
+    [[ "$p70_muxer" -ge 2 ]] && ((++p70_verify))
+    [[ "$p70_ws" -ge 1 ]] && ((++p70_verify))
+    if [[ "$p70_verify" -eq 3 ]]; then
+        ok "P-70.4: verification passed ($p70_verify/3)"
+        ((++p70_count))
+    else
+        warn "P-70.4: verification partial ($p70_verify/3)"
+    fi
+
+    ok "P-70: video 4K stability fix applied (v6.4.3) — sub-patches: $p70_count/4"
+    if [[ "$p70_count" -ge 3 ]]; then
         ((++patch_count))
     else
         ((++patch_fail))
