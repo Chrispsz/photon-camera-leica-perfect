@@ -1,11 +1,18 @@
 name: Build & Release APK
 
-# Builds the Photon Camera fork (Leica Perfect v6.5.3 ABSOLUTE) from upstream
+# Builds the Photon Camera fork (Leica Perfect v6.6.0 ABSOLUTE) from upstream
 # bjzhou/PhotonCamera 1.26.1 + surgical patches, then publishes the APK as a rolling
 # GitHub Release (tag "latest") for fast CDN-backed download.
 #
 # ABSOLUTE build: NO_MENU=1 (no mod menu UI — mode_max baked from JSON config).
 # ccache enabled for faster native C/C++ recompilation.
+# v6.6.0: Round 09 hardware-aware pipeline fixes — 4 new patches (P-80..P-84) to make
+#   Photon surpass stock in ALL scenarios, not just 80%:
+#   P-80: Software LSC radial correction (kill residual color vignette in shadows)
+#   P-81: QuadBayer remosaic detection (fix 50% resolution loss on OV50E!)
+#   P-83: Night mode dedicated (1-3s long exposure + multi-frame stacking)
+#   P-84: ZSL circular buffer (zero shutter lag — 5-frame ring)
+#   All v6.5.x fixes preserved (force_dcp_id=null, awb_clamp.enabled=false, multi-frame ON).
 # v6.5.3: Round 08 polish — config-only tuning (24 params across 8 sections) based on VLM
 #   comparative analysis of 6 beach photos (2x Leica Authentic + 2x Leica Vibrante + 2x Photon v6.5.2).
 #   Goal: polish Photon to match Leica Authentic reference. Eliminates residual ciano/green tint,
@@ -23,7 +30,7 @@ name: Build & Release APK
 # APK + fragments + 7z supercompressed archive published to the `latest` release.
 #
 # Rolling `latest` release URL (always the newest green build):
-#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.5.3-debug.apk
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.6.0-debug.apk
 
 on:
   push:
@@ -93,7 +100,7 @@ jobs:
           nproc
           free -h
 
-      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.5.3)
+      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.6.0)
         env:
           CCACHE_DIR: ~/.ccache
         run: |
@@ -117,7 +124,7 @@ jobs:
       - name: Upload build artifact (90-day)
         uses: actions/upload-artifact@v4
         with:
-          name: LeicaPerfect-v6.5.3-debug-apk
+          name: LeicaPerfect-v6.6.0-debug-apk
           path: apk/*.apk
           retention-days: 90
           if-no-files-found: error
@@ -155,35 +162,53 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Leica Perfect v6.5.3 ABSOLUTE (Round 08 polish — VLM tuning vs Leica Authentic)
+          name: "Leica Perfect v6.6.0 ABSOLUTE (Round 09 hardware-aware — P-80..P-84: LSC + QuadBayer + Night mode + ZSL)"
           body: |
-            # Leica Perfect v6.5.3 ABSOLUTE
+            # Leica Perfect v6.6.0 ABSOLUTE
 
             Photon Camera fork — built from upstream `bjzhou/PhotonCamera` 1.26.1
-            + surgical patches + **v6.5 VLM-driven pipeline fixes** + **v6.5.3 Round 08 polish tuning**.
+            + surgical patches + **v6.5 VLM-driven pipeline fixes** + **v6.5.3 Round 08 polish tuning** + **v6.6.0 Round 09 hardware-aware pipeline fixes**.
 
             ## ABSOLUTE build
             - **No mod menu** — mode_max is baked from JSON config (no UI to change it)
             - ccache enabled for faster native builds
-            - **Capture mode: `mode_max`** (ONLY mode — mode_fast removed in v6.4.6)
+            - **Capture mode: `mode_max`** (default) — `mode_night` available in JSON for night tripod shots
             - 15/9/7/11 frames, super-res 2.0x, NLM radius 7, JPEG/HEIC/UltraHDR Q100
             - Optimized for **Xiaomi 15T** (OV50E + S5KJN1 + S5K3J1 + OV32B)
             - **JPEG by default; RAW available on-demand** via gear icon → RAW toggle (v6.4.5)
             - **v6.4.7-fix2: DEBUG build** — reverted from release to debug build for guaranteed installability
 
-            ## What's new in v6.5.3 (Round 08 polish — config-only tuning)
-            Based on VLM comparative analysis of 6 beach photos (2x Stock Leica Authentic + 2x Stock Leica Vibrante + 2x Photon v6.5.2):
-            - **24 parameters adjusted across 8 sections** (color, color_science, tone_mapping, sharpening, noise_reduction, ae_protection, advanced, per_lens.main)
-            - **Color**: warmth +3%, tint_shift +6 magenta, saturation_green -16→-8 (back to life), saturation_blue -7→-2 (sky/sea depth), saturation_red -5→0 (natural skin)
-            - **Tone**: contrast -5% (cinema curve vs digital harsh), highlight_rolloff -27% (clouds preserved), shadow_lift +66% (no more crushed blacks)
-            - **Sharpening**: amount -26% (kills white halos), threshold +140% (only real edges), edge_mask +29% (stronger gating)
-            - **Noise**: chrominance -2.5% (kills oil-painting in sand/clouds), detail_preserve +13% (texture back)
-            - **AE protection**: highlight_clip_threshold -50% (saves clouds), shadow_floor +60% (saves shadow detail)
-            - **All v6.5.1+v6.5.2 fixes preserved** (force_dcp_id=null, awb_clamp.enabled=false, multi-frame stacking ON)
+            ## What's new in v6.6.0 (Round 09 hardware-aware — 4 new patches)
+            Goal: make Photon surpass stock in ALL scenarios, not just 80%.
 
-            ## v6.5.2 (previous) — ROOT CAUSE FIX: green cast in PREVIEW
+            ### P-80: Software LSC radial correction (kill residual color vignette)
+            - **Problem**: Hardware LSC (SHADING_MODE_HIGH_QUALITY) leaves residual color vignette — visible as green/magenta casts at frame edges in dark scenes on QuadBayer sensors (OV50E)
+            - **Fix**: New `SoftwareLscShader.kt` (GLSL compute shader) applies radial vignette + per-channel tint correction post-demosaic
+            - **5 new config params**: `lens_correction.vignette_correction_strength` (0.5), `vignette_correction_radius` (0.7), `vignette_correction_tint_red/green/blue` (0.0/-0.05/0.0)
+            - Wired via `RawDemosaicProcessor.applySoftwareLscIfNeeded()` — opt-in via `lens_correction.vignette_correction=true` (already true in v6.5.x)
+
+            ### P-81: QuadBayer remosaic detection (fix 50% resolution loss on OV50E!)
+            - **ROOT CAUSE**: `RawMetadata.kt` `when(correctedCfa)` only mapped 4 standard Bayer patterns (RGGB/GRBG/GBRG/BGGR). QuadBayer sensors (Android 13+ constants 4..7) fell to `else -> CFA_RGGB` → `isQuadBayer()=false` → QuadBayer demosaic path (`QuadBayerShaders.kt` with 5 compute shaders POPULATE/GREEN/CHROMA/REFINE/WRITE_OUTPUT) NEVER invoked → **50% resolution loss on main camera**
+            - **Fix**: Added 4 new cases before `else` branch: `4 -> CFA_QUAD_RGGB`, `5 -> CFA_QUAD_GRBG`, `6 -> CFA_QUAD_GBRG`, `7 -> CFA_QUAD_BGGR`
+            - **Manual override**: `sensors.force_quad_bayer_remosaic` (default false) — set true if HAL misreports CFA
+            - **Expected impact**: +30-50% real resolution on OV50E main camera
+
+            ### P-83: Night mode dedicated (1-3s long exposure + multi-frame stacking)
+            - **Problem**: `MultiFrameConfig.LONG_FRAME_MAX_EXPOSURE_TIME_NS = 10_000_000L` (10ms) hard cap — fine for hand-held daytime, useless for night tripod shots
+            - **Fix**: New `mode_night` capture mode with `long_exposure_time_ms: 2000` (2s) + `multi_frame_stack_count: 5`. `MultiFrameConfig.LONG_FRAME_MAX_EXPOSURE_TIME_NS` changed from `const val` to `val get() = LeicaConfig.nightModeLongExposureMaxNs` (dynamic: 10ms mode_max, 2000ms mode_night)
+            - **5 new accessors**: `isNightMode`, `nightModeLongExposureMs`, `nightModeStackCount`, `nightModeForceLongExposure`, `nightModeLongExposureMaxNs`
+
+            ### P-84: ZSL circular buffer (zero shutter lag — 5-frame ring)
+            - **Problem**: `Camera2Controller.kt:3121` forcibly set `CONTROL_ENABLE_ZSL=false` → no ZSL → shutter lag ~2s (15-frame capture)
+            - **Fix**: New `ZslBufferManager.kt` (5-frame ring buffer of TotalCaptureResults, 500ms max age). `Camera2Controller.setZslDisabledIfSupported()` now respects `LeicaConfig.zslBufferEnabled` — when true, enables ZSL + populates buffer
+            - **Config**: `capture_modes.modes.mode_max.zsl_buffer_enabled` (default false — opt-in) + `zsl_buffer_size` (5)
+            - **Note**: Currently only enables ZSL hardware feature + populates buffer. Full zero-lag capture trigger (pull from buffer instead of new capture) is reserved for v6.6.1 after validating buffer population
+
+            ## v6.5.3 (previous) — Round 08 polish tuning (24 params)
+            Based on VLM comparative analysis of 6 beach photos. Eliminates residual ciano/green tint, restores natural green/blue saturation, kills halos and oil-painting, protects highlights/shadows.
+
+            ## v6.5.2 — ROOT CAUSE FIX: green cast in PREVIEW
             - `awb_clamp.enabled: true → false` (U-05 was bypassing HAL with manual TRANSFORM_MATRIX → green cast)
-            - Stock camera uses CONTROL_AWB_MODE=AUTO (HAL does everything) → now we do same
 
             ## v6.5.1 — ROOT CAUSE FIX: universal green cast + single-frame noise
             - DCP CCD Leica M8 REMOVIDO (force_dcp_id=null) — CCM nativa do sensor OV50E CMOS QuadBayer
@@ -253,11 +278,11 @@ jobs:
 
             ## Download
             ### Option A — single APK (easiest)
-            Download `LeicaPerfect-v6.5.3-debug.apk` and install.
+            Download `LeicaPerfect-v6.6.0-debug.apk` and install.
 
             ### Option B — 7z supercompressed (smallest download)
-            Download `LeicaPerfect-v6.5.3-debug.apk.7z` (LZMA2 max compression).
-            Extract with: `7z x LeicaPerfect-v6.5.3-debug.apk.7z`
+            Download `LeicaPerfect-v6.6.0-debug.apk.7z` (LZMA2 max compression).
+            Extract with: `7z x LeicaPerfect-v6.6.0-debug.apk.7z`
 
             ### Option C — fragments (parallel / resumable)
             Grab the `.part*` files + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.

@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.5.3 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.6.0 PhotonCamera Fork Build Script
+# v6.6.0 (Round 09 hardware-aware): 4 NEW patches (P-80..P-84) to make Photon
+#   surpass stock in ALL scenarios, not just 80%:
+#   - P-80: Software LSC radial correction (kill residual color vignette in shadows)
+#     New SoftwareLscShader.kt + 5 lens_correction params (strength/radius/tint R/G/B)
+#     Applied post-demosaic via RawDemosaicProcessor.applySoftwareLscIfNeeded()
+#   - P-81: QuadBayer remosaic detection (fix 50% resolution loss on OV50E!)
+#     ROOT CAUSE: RawMetadata.kt when(correctedCfa) only mapped 4 standard Bayer
+#     patterns → QuadBayer sensors (Android 13+ constants 4..7) fell to else→CFA_RGGB
+#     → isQuadBayer()=false → QuadBayer demosaic path NEVER invoked → 50% resolution
+#     loss. Fix: add 4->CFA_QUAD_RGGB, 5->CFA_QUAD_GRBG, 6->CFA_QUAD_GBRG, 7->CFA_QUAD_BGGR
+#   - P-83: Night mode dedicated (1-3s long exposure + multi-frame stacking)
+#     New mode_night in capture_modes.modes (2s long_exposure_time_ms, 5-frame stack)
+#     MultiFrameConfig.LONG_FRAME_MAX_EXPOSURE_TIME_NS: const val → val get() =
+#     LeicaConfig.nightModeLongExposureMaxNs (10ms mode_max, 2000ms mode_night)
+#   - P-84: ZSL circular buffer (zero shutter lag — 5-frame ring)
+#     New ZslBufferManager.kt + zsl_buffer_enabled/zsl_buffer_size in config
+#     Camera2Controller.setZslDisabledIfSupported() respects LeicaConfig.zslBufferEnabled
+#   - Total: 16 new substeps across 4 patches (P-82 intentionally skipped)
+#   - All v6.5.x fixes preserved (force_dcp_id=null, awb_clamp.enabled=false, multi-frame ON)
+#   - v6.5.3 Round 08 polish tuning (24 params) preserved
 # v6.5.3 (Round 08 polish): TUNING para polir Photon ao nível Leica Authentic:
 #   - color.warmth 1.02→1.05 (+3%, Photon estava fria vs Authentic)
 #   - color.vibrance 1.04→1.06 (+2%, sutil pop sem virar Vibrante)
@@ -127,7 +147,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.5.3"
+readonly FORK_VERSION="6.6.0"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -5870,6 +5890,32 @@ GRADLE_KT_P74
         fi
     else
         warn "P-79: upgrades script not found at $upgrades_script — skipping v6.5 upgrades"
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
+    # P-80: v6.6.0 HARDWARE-AWARE PIPELINE FIXES (P-80..P-84)
+    # 4 new patches to make Photon surpass stock in ALL scenarios:
+    #   P-80: Software LSC radial correction (kill residual color vignette)
+    #   P-81: QuadBayer remosaic detection (fix 50% resolution loss on OV50E)
+    #   P-83: Night mode dedicated (1-3s long exposure + multi-frame stacking)
+    #   P-84: ZSL circular buffer (zero shutter lag — 5-frame ring)
+    # 16 substeps, ~600 LOC → Python3 script for reliable string matching
+    # ───────────────────────────────────────────────────────────────────────
+    section "P-80: v6.6.0 HARDWARE-AWARE PIPELINE FIXES (P-80..P-84 — LSC + QuadBayer + Night mode + ZSL)"
+    local v66_script="$SCRIPT_DIR/patches/apply_upgrades_v66.py"
+    if [[ -f "$v66_script" ]]; then
+        info "Running apply_upgrades_v66.py (4 patches: software LSC, QuadBayer remosaic, night mode, ZSL buffer)"
+        if python3 "$v66_script" "$SOURCE_DIR" 2>&1; then
+            ok "P-80: v6.6.0 hardware-aware pipeline fixes P-80..P-84 applied successfully"
+            ((++patch_count))
+        else
+            warn "P-80: v6.6.0 upgrades script returned errors (build may still succeed — missing patches = feature disabled)"
+            ((++patch_fail))
+        fi
+    else
+        warn "P-80: v6.6.0 upgrades script not found at $v66_script — skipping v6.6.0 upgrades"
         ((++patch_fail))
     fi
     echo ""
