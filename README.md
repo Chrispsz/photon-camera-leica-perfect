@@ -1,7 +1,7 @@
-# Photon Camera — Leica Perfect v6.4.9
+# Photon Camera — Leica Perfect v6.4.10
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **78 surgical patches** (Cron 18: REAL night denoise — chroma NR + exposure reduction),
+with **79 surgical patches (Cron 19: WIRE NR TO ALGORITHM — P-77 was dead config!) — chroma NR + exposure reduction),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Single capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
@@ -31,13 +31,13 @@ Reverted to debug build (guaranteed installable, same as v6.4.1-v6.4.5). APK ~13
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.9-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.10-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.9-debug.apk
+adb install -r LeicaPerfect-v6.4.10-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -53,10 +53,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 78 surgical `sed` patches (tiers P-1 … P-77) over the upstream Kotlin/C++ source |
+| `patch` | 79 surgical `sed` patches (tiers P-1 … P-78) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — DEBUG build, guaranteed installable) |
 
-Output: `apk/LeicaPerfect-v6.4.9-debug.apk` (~138 MB — debug build, same as v6.4.1-v6.4.8).
+Output: `apk/LeicaPerfect-v6.4.10-debug.apk` (~138 MB — debug build, same as v6.4.1-v6.4.8).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -103,7 +103,7 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.9 (vs upstream)
+## What's in v6.4.10 (vs upstream)
 
 - **Cron 18: REAL night denoise** — 78 patches / 185+ substeps, all verified
 - **P-77 REAL night denoise (6 sub-patches)** — fixes P-76 incomplete (chroma NR missed):

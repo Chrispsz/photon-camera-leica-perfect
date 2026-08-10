@@ -33,6 +33,7 @@
 #   Tier 23 (P-75):        v6.4.7 natural baseline (LUT "none" no perfil ativo + fix latent force_baseline_lut_id)
 #   Tier 24 (P-76):        v6.4.8 night precision (revert LUT leica_m9 + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96)
 #   Tier 25 (P-77):        v6.4.9 real night denoise (chroma NR 0.7→0.94 + luma 0.96→0.98 + detail_preserve 0.96→0.85 + shadow_lift 0.05→0.02 + default_exposure 0.88→0.5 + pgtm boost 0.8→0.4)
+#   Tier 26 (P-78):        v6.4.10 WIRE NR TO ALGORITHM (P-77 values were dead config! GalleryManager rawChromaNoiseReduction=0f hardcoded + rawNoiseReduction=0f default + sharpening 0.4f amplifies noise) — revert P-77 exposure cuts + sed-patch GalleryManager to read LeicaConfig.noiseReductionChrominance/Luminance + reduce sharpening 0.4→0.15
 #
 # v6.3.5 (Cron 2 fixes): P-52a/b/c paths corrected, P-31 targeted L6801 only,
 #   P-32a bitrate pattern P5→P1, P-53a/b/c runtime NLM radius (C2/C3/C4 from
@@ -82,7 +83,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.9"
+readonly FORK_VERSION="6.4.10"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -5669,6 +5670,144 @@ GRADLE_KT_P74
     fi
     echo ""
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 26 (P-78) — v6.4.10: WIRE NR TO ACTUAL ALGORITHM (P-77 was dead config!)
+    # ─────────────────────────────────────────────────────────────────────────
+    # CRITICAL BUG DISCOVERY: VLM analysis of v6.4.9 photos showed P-77 had NO EFFECT on noise.
+    # Root cause: noise_reduction.luminance/chrominance/detail_preserve in leica_perfect.json
+    # are DEFINED in LeicaConfig.kt (accessors exist) but NEVER CALLED by any code!
+    # The ACTUAL NR strength comes from:
+    #   - GalleryManager.kt:244  rawNoiseReduction = preferences?.rawNlmNoiseFactor ?: 0f  (luma NR defaults to 0 = OFF)
+    #   - GalleryManager.kt:245  rawChromaNoiseReduction = 0f  (HARDCODED ZERO — chroma NR always OFF!)
+    #   - RawSharpeningDefaults.kt:4  CAPTURE_DEFAULT = 0.4f  (sharpening ON — amplifies noise!)
+    #   - ChromaDenoiseDefaults.kt:4  RAW_CAPTURE_DEFAULT_STRENGTH = 0.0f  (chroma NR default OFF)
+    # Result: ALL night photos since v6.2.0 had luma NR OFF + chroma NR OFF + sharpening amplifying noise.
+    # P-77.1/2/3 JSON values (chrominance=0.94, luminance=0.98, detail_preserve=0.85) were dead config.
+    # P-77.4/5/6 exposure reductions (shadow_lift, default_exposure, pgtm_boost) DID work but made
+    # photos -46% darker WITHOUT reducing noise = worst of both worlds.
+    #
+    # FIX P-78 (6 sub-patches):
+    #   P-78.1: REVERT shadow_lift 0.02→0.05 (undo P-77.4 — was too dark)
+    #   P-78.2: REVERT default_exposure_ev 0.5→0.88 (undo P-77.5 — was too dark)
+    #   P-78.3: REVERT pgtm_pre_tonemap_exposure_boost_ev 0.4→0.8 (undo P-77.6 — was too dark)
+    #   P-78.4: sed GalleryManager.kt:244 — wire luma NR to LeicaConfig.noiseReductionLuminance (was 0f!)
+    #   P-78.5: sed GalleryManager.kt:245 — wire chroma NR to LeicaConfig.noiseReductionChrominance (was 0f hardcoded!)
+    #   P-78.6: sed RawSharpeningDefaults.kt:4 — CAPTURE_DEFAULT 0.4f→0.15f (reduce noise amplification)
+    section "P-78: WIRE NR TO ACTUAL ALGORITHM (v6.4.10) — P-77 was dead config!"
+    local p78_count=0
+
+    local json_cfg_p78="$SCRIPT_DIR/config/leica_perfect.json"
+    local gm_p78="$APP_JAVA/gallery/GalleryManager.kt"
+    local rsd_p78="$APP_JAVA/raw/RawSharpeningDefaults.kt"
+
+    # P-78.1: REVERT shadow_lift 0.02→0.05 (undo P-77.4)
+    substep "P-78.1: revert tone_mapping.shadow_lift 0.02→0.05 (undo P-77.4 — was too dark)"
+    if [[ -f "$json_cfg_p78" ]]; then
+        local p78_sl=$(python3 -c "import json; print(json.load(open('$json_cfg_p78'))['tone_mapping']['shadow_lift'])" 2>/dev/null)
+        if [[ "$p78_sl" == "0.05" ]]; then
+            ok "P-78.1: shadow_lift=0.05 confirmed (reverted from P-77.4's 0.02 — exposure back to v6.4.8 level)"
+            ((++p78_count))
+        else
+            warn "P-78.1: expected shadow_lift=0.05, got \"$p78_sl\""
+        fi
+    fi
+
+    # P-78.2: REVERT default_exposure_ev 0.5→0.88 (undo P-77.5)
+    substep "P-78.2: revert processing.default_exposure_ev 0.5→0.88 (undo P-77.5 — was too dark)"
+    if [[ -f "$json_cfg_p78" ]]; then
+        local p78_de=$(python3 -c "import json; print(json.load(open('$json_cfg_p78'))['processing']['default_exposure_ev'])" 2>/dev/null)
+        if [[ "$p78_de" == "0.88" ]]; then
+            ok "P-78.2: default_exposure_ev=0.88 confirmed (reverted from P-77.5's 0.5 — exposure back to v6.4.8 level)"
+            ((++p78_count))
+        else
+            warn "P-78.2: expected default_exposure_ev=0.88, got \"$p78_de\""
+        fi
+    fi
+
+    # P-78.3: REVERT pgtm_pre_tonemap_exposure_boost_ev 0.4→0.8 (undo P-77.6)
+    substep "P-78.3: revert pgtm_pre_tonemap_exposure_boost_ev 0.4→0.8 (undo P-77.6 — was too dark)"
+    if [[ -f "$json_cfg_p78" ]]; then
+        local p78_pgtm=$(python3 -c "import json; print(json.load(open('$json_cfg_p78'))['processing']['pgtm_pre_tonemap_exposure_boost_ev'])" 2>/dev/null)
+        if [[ "$p78_pgtm" == "0.8" ]]; then
+            ok "P-78.3: pgtm_pre_tonemap_exposure_boost_ev=0.8 confirmed (reverted from P-77.6's 0.4 — exposure back to v6.4.8 level)"
+            ((++p78_count))
+        else
+            warn "P-78.3: expected pgtm_pre_tonemap_exposure_boost_ev=0.8, got \"$p78_pgtm\""
+        fi
+    fi
+
+    # P-78.4: WIRE luma NR — GalleryManager.kt:244 rawNoiseReduction = preferences?.rawNlmNoiseFactor ?: 0f
+    #   → change 0f fallback to LeicaConfig.noiseReductionLuminance.toFloat()
+    substep "P-78.4: wire luma NR to LeicaConfig (GalleryManager.kt:244 — was defaulting to 0f = OFF!)"
+    if [[ -f "$gm_p78" ]]; then
+        if grep -q 'LeicaConfig.noiseReductionLuminance' "$gm_p78" 2>/dev/null; then
+            ok "P-78.4: GalleryManager luma NR already wired to LeicaConfig.noiseReductionLuminance"
+            ((++p78_count))
+        else
+            # Ensure LeicaConfig import exists (P-19 should have added it, but verify)
+            grep -q '^import com.hinnka.mycamera.raw.LeicaConfig$' "$gm_p78" 2>/dev/null || \
+                sed -i '/^package /a import com.hinnka.mycamera.raw.LeicaConfig' "$gm_p78"
+            # Patch: replace '?: 0f' fallback with LeicaConfig value (only on the rawNoiseReduction line)
+            sed -i 's|val rawNoiseReduction = preferences?.rawNlmNoiseFactor ?: 0f|val rawNoiseReduction = preferences?.rawNlmNoiseFactor?.takeIf { it > 0f } ?: LeicaConfig.noiseReductionLuminance.toFloat()  // v6.4.10 P-78.4: wire luma NR to JSON config (was 0f = OFF!)|' "$gm_p78"
+            if grep -q 'LeicaConfig.noiseReductionLuminance' "$gm_p78" 2>/dev/null; then
+                ok "P-78.4: GalleryManager luma NR wired to LeicaConfig.noiseReductionLuminance (0.98) — was 0f!"
+                ((++p78_count))
+            else
+                warn "P-78.4: sed pattern didn't match — rawNoiseReduction line may have changed"
+            fi
+        fi
+    else
+        warn "P-78.4: GalleryManager.kt not found at $gm_p78"
+    fi
+
+    # P-78.5: WIRE chroma NR — GalleryManager.kt:245 rawChromaNoiseReduction = 0f (HARDCODED ZERO!)
+    #   → change to LeicaConfig.noiseReductionChrominance.toFloat()
+    substep "P-78.5: wire chroma NR to LeicaConfig (GalleryManager.kt:245 — was HARDCODED 0f = OFF!)"
+    if [[ -f "$gm_p78" ]]; then
+        if grep -q 'LeicaConfig.noiseReductionChrominance' "$gm_p78" 2>/dev/null; then
+            ok "P-78.5: GalleryManager chroma NR already wired to LeicaConfig.noiseReductionChrominance"
+            ((++p78_count))
+        else
+            # Patch: replace '= 0f' with LeicaConfig value (only on the rawChromaNoiseReduction line)
+            sed -i 's|val rawChromaNoiseReduction = 0f|val rawChromaNoiseReduction = LeicaConfig.noiseReductionChrominance.toFloat()  // v6.4.10 P-78.5: wire chroma NR to JSON config (was HARDCODED 0f = OFF!)|' "$gm_p78"
+            if grep -q 'LeicaConfig.noiseReductionChrominance' "$gm_p78" 2>/dev/null; then
+                ok "P-78.5: GalleryManager chroma NR wired to LeicaConfig.noiseReductionChrominance (0.94) — was HARDCODED 0f!"
+                ((++p78_count))
+            else
+                warn "P-78.5: sed pattern didn't match — rawChromaNoiseReduction line may have changed"
+            fi
+        fi
+    else
+        warn "P-78.5: GalleryManager.kt not found at $gm_p78"
+    fi
+
+    # P-78.6: Reduce sharpening — RawSharpeningDefaults.kt:4 CAPTURE_DEFAULT 0.4f→0.15f
+    substep "P-78.6: reduce sharpening CAPTURE_DEFAULT 0.4f→0.15f (was amplifying noise!)"
+    if [[ -f "$rsd_p78" ]]; then
+        if grep -q 'CAPTURE_DEFAULT = 0.15f' "$rsd_p78" 2>/dev/null; then
+            ok "P-78.6: RawSharpeningDefaults CAPTURE_DEFAULT already 0.15f"
+            ((++p78_count))
+        else
+            sed -i 's|const val CAPTURE_DEFAULT = 0.4f|const val CAPTURE_DEFAULT = 0.15f  // v6.4.10 P-78.6: reduced from 0.4f (was amplifying noise)|' "$rsd_p78"
+            if grep -q 'CAPTURE_DEFAULT = 0.15f' "$rsd_p78" 2>/dev/null; then
+                ok "P-78.6: RawSharpeningDefaults CAPTURE_DEFAULT 0.4f→0.15f (less noise amplification)"
+                ((++p78_count))
+            else
+                warn "P-78.6: sed pattern didn't match — CAPTURE_DEFAULT line may have changed"
+            fi
+        fi
+    else
+        warn "P-78.6: RawSharpeningDefaults.kt not found at $rsd_p78"
+    fi
+
+    ok "P-78: NR WIRED TO ALGORITHM applied (v6.4.10) — sub-patches: $p78_count/6"
+    if [[ "$p78_count" -ge 5 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
     # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
@@ -5680,7 +5819,7 @@ GRADLE_KT_P74
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "78 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-77 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up) + v6.4.9 REAL night denoise (chroma NR 0.7→0.94 + detail_preserve 0.96→0.85 + exposure reduction)"
+        ok "79 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-78 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up) + v6.4.9 REAL night denoise (chroma NR JSON values) + v6.4.10 WIRE NR TO ALGORITHM (P-77 dead config fix — GalleryManager rawChromaNoiseReduction 0f→LeicaConfig + rawNoiseReduction 0f→LeicaConfig + sharpening 0.4→0.15)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
@@ -5698,7 +5837,8 @@ GRADLE_KT_P74
   Cron 15: P-73 mode_fast removed (user: "não esquenta, mode_fast só atrapalha") + P-74 Release APK + R8 + arm64-v8a filter
   Cron 16: P-75 natural baseline — LUT "none" no perfil leica_perfect_signature + fix latent force_baseline_lut_id (era "Leica_M9_STD")
   Cron 17: P-76 night precision — revert LUT leica_m9 (flat+noisy) + AgX less aggressive (shadow_lift 0.05 + pgtm boost 0.8) + NR luma 0.96
-  Cron 18: P-77 REAL night denoise — chroma NR 0.7→0.94 (VLM flagged chroma as dominant offender) + detail_preserve 0.96→0.85 + shadow_lift 0.05→0.02 + default_exposure 0.88→0.5 + pgtm boost 0.8→0.4 (total exposure lift +1.68 EV → +0.9 EV)
+  Cron 18: P-77 REAL night denoise — chroma NR 0.7→0.94 + detail_preserve 0.96→0.85 + exposure reduction (REVERTED exposure cuts in P-78 — were too dark)
+  Cron 19: P-78 WIRE NR TO ALGORITHM — discovered P-77 JSON values were DEAD CONFIG (never called by any code). GalleryManager rawChromaNoiseReduction was HARDCODED 0f! + rawNoiseReduction defaulted to 0f! + sharpening 0.4f amplified noise! P-78.4-6 wires luma+chroma NR to LeicaConfig + reduces sharpening 0.4→0.15. P-78.1-3 reverts P-77.4-6 exposure cuts (were too dark)
   Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand + Leica M9 baseline + LUT on-demand + night precision)
 ═══════════════════════════════════════════════════════════════
 FOOTER
