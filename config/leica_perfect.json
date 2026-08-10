@@ -28,32 +28,36 @@
     }
   },
   "sharpening": {
+    "_comment_v65": "v6.5 U-02: oversharpening -40% (0.09→0.054), edge_mask_strength aumentado (2.2→3.5) para adaptive gating, radius reduzido (0.9→0.7) para halos menores",
     "enabled": true,
-    "amount": 0.09,
-    "radius": 0.9,
-    "threshold": 0.003,
+    "amount": 0.054,
+    "radius": 0.7,
+    "threshold": 0.005,
     "adaptive": true,
-    "edge_mask_strength": 2.2
+    "edge_mask_strength": 3.5
   },
   "noise_reduction": {
+    "_comment_v65": "v6.5 U-01+U-04: chroma NR 0.94→0.96 (mais agressivo em sombras), detail_preserve 0.85→0.75 (elimina oil-painting), adaptive true",
     "enabled": true,
     "luminance": 0.98,
-    "chrominance": 0.94,
-    "detail_preserve": 0.85,
+    "chrominance": 0.96,
+    "detail_preserve": 0.75,
     "adaptive": true
   },
   "color": {
-    "saturation_boost": 1.02,
-    "vibrance": 1.01,
+    "_comment_v65": "v6.5 U-07: saturation_boost 1.02→1.0 (neutro), vibrance 1.01→1.04 (seletivo para cores de baixa saturação)",
+    "saturation_boost": 1.0,
+    "vibrance": 1.04,
     "warmth": 1.0,
     "leica_look": true,
     "color_profile": "summilux"
   },
   "tone_mapping": {
+    "_comment_v65": "v6.5 U-03+U-08: shadow_lift 0.05→0.03 (menos ruído nas sombras), highlight_rolloff 0.35→0.30 (preserva mais highlights)",
     "enabled": true,
     "contrast": 1.1,
-    "highlight_rolloff": 0.35,
-    "shadow_lift": 0.05,
+    "highlight_rolloff": 0.3,
+    "shadow_lift": 0.03,
     "film_like_curve": true
   },
   "lens_correction": {
@@ -91,8 +95,9 @@
     "nlm_patch_radius": 1
   },
   "processing": {
-    "usm_radius": 0.9,
-    "usm_threshold": 0.004,
+    "_comment_v65": "v6.5 U-06: default_exposure_ev 0.88→0.5 (menos amplificação de ruído), pgtm_pre_tonemap_exposure_boost_ev 0.8→0.4 (-50% ruído)",
+    "usm_radius": 0.7,
+    "usm_threshold": 0.005,
     "pgtm_toe_power": 1.6,
     "pgtm_mid_power": 1.35,
     "pgtm_shoulder_power": 1.3,
@@ -100,12 +105,44 @@
     "filmic_grey_source": 0.1845,
     "filmic_default_contrast": 1.6,
     "filmic_default_dynamic_range": 12.5,
-    "default_exposure_ev": 0.88,
+    "default_exposure_ev": 0.5,
     "display_target_luma": 0.21,
     "center_weight_sigma": 0.28,
-    "pgtm_pre_tonemap_exposure_boost_ev": 0.8,
+    "pgtm_pre_tonemap_exposure_boost_ev": 0.4,
     "pgtm_target_dynamic_range": 120,
     "hncs_film_curve_gain": 1.1
+  },
+  "awb_clamp": {
+    "_comment_v65": "v6.5 U-05: AWB CCT clamping importado do M9 CCD. Estabiliza WB no modo padrão.",
+    "enabled": true,
+    "min_cct": 3500,
+    "max_cct": 7000,
+    "smoothing_alpha": 0.15,
+    "outdoor_daylight_range": [
+      5000,
+      6500
+    ],
+    "indoor_tungsten_range": [
+      2700,
+      3500
+    ],
+    "indoor_led_warm_range": [
+      3000,
+      4000
+    ],
+    "indoor_led_neutral_range": [
+      4500,
+      5500
+    ]
+  },
+  "ae_protection": {
+    "_comment_v65": "v6.5 U-06: Highlight/shadow protection no AE para evitar blow-outs e crushed blacks.",
+    "enabled": true,
+    "highlight_clip_threshold_pct": 1.0,
+    "shadow_clip_threshold_pct": 1.0,
+    "shadow_floor_rgb": 5,
+    "histogram_feedback_enabled": true,
+    "max_ev_comp_steps": 12
   },
   "dcp": {
     "force_dcp_id": "builtin_dcp_Leica M8 Camera Standard",
@@ -710,5 +747,6 @@
         "best_lens": "main"
       }
     }
-  }
+  },
+  "config_version": "6.5.0"
 }

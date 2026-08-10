@@ -83,7 +83,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.10"
+readonly FORK_VERSION="6.5.0"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -222,7 +222,7 @@ cmd_clone() {
 # COMANDO: patch — aplica 59 patches cirúrgicos (75 substeps)
 # ═════════════════════════════════════════════════════════════════════════════
 cmd_patch() {
-    section "Aplicar 99 substeps cirúrgicos (66 patches) — Leica Perfect v$FORK_VERSION"
+    section "Aplicar 99+ substeps cirúrgicos (66+ patches + v6.5 upgrades) — Leica Perfect v$FORK_VERSION"
 
     # Verifica source existe
     if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -5809,6 +5809,28 @@ GRADLE_KT_P74
     echo ""
 
     # ───────────────────────────────────────────────────────────────────────
+    # P-79: v6.5 UPGRADES (U-01..U-06) — VLM-driven pipeline fixes
+    # Based on 5 rounds of comparative testing (avaliacao-final.md)
+    # 6 patches, 3772 LOC → Python3 script for reliable string matching
+    # ───────────────────────────────────────────────────────────────────────
+    section "P-79: v6.5 UPGRADES U-01..U-06 (VLM-driven pipeline fixes)"
+    local upgrades_script="$SCRIPT_DIR/patches/apply_upgrades_v65.py"
+    if [[ -f "$upgrades_script" ]]; then
+        info "Running apply_upgrades_v65.py (6 patches: adaptive sharpening, detail preserve, denoise shadows, guided filter, AWB clamp, AE histogram)"
+        if python3 "$upgrades_script" "$SOURCE_DIR" 2>&1; then
+            ok "P-79: v6.5 upgrades U-01..U-06 applied successfully"
+            ((++patch_count))
+        else
+            warn "P-79: v6.5 upgrades script returned errors (build may still succeed — missing patches = feature disabled)"
+            ((++patch_fail))
+        fi
+    else
+        warn "P-79: upgrades script not found at $upgrades_script — skipping v6.5 upgrades"
+        ((++patch_fail))
+    fi
+    echo ""
+
+    # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
     section "SUMÁRIO — Leica Perfect v$FORK_VERSION patches"
@@ -5819,7 +5841,7 @@ GRADLE_KT_P74
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "79 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-78 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up) + v6.4.9 REAL night denoise (chroma NR JSON values) + v6.4.10 WIRE NR TO ALGORITHM (P-77 dead config fix — GalleryManager rawChromaNoiseReduction 0f→LeicaConfig + rawNoiseReduction 0f→LeicaConfig + sharpening 0.4→0.15)"
+        ok "80 surgical patches applied (P-1..P-78 + P-79 v6.5 upgrades U-01..U-06) — full pipeline + per-lens + runtime activation + UI + v6.3.4-v6.4.10 evolutionary improvements + v6.5 VLM-driven pipeline fixes: U-01 denoise shadow reinforcement, U-02 adaptive sharpening (-40% + edge mask + noise gate), U-03 bilateral→guided filter (HDR halo killer), U-04 detail_preserve wiring (oil-painting fix), U-05 AWB CCT clamping (M9 CCD stabilization for default mode), U-06 AE histogram feedback (highlight/shadow protection)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
