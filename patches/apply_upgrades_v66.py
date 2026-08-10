@@ -90,7 +90,8 @@ val lensVignetteCorrectionStrength: Float get() = currentConfig?.lensCorrection?
 val lensVignetteCorrectionRadius: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionRadius ?: 0.7f
 val lensVignetteCorrectionTintRed: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintRed ?: 0.0f
 val lensVignetteCorrectionTintGreen: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintGreen ?: -0.05f
-val lensVignetteCorrectionTintBlue: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintBlue ?: 0.0f'''
+val lensVignetteCorrectionTintBlue: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintBlue ?: 0.0f
+'''
                 text = text[:eol+1] + new_lines + text[eol+1:]
                 write_file(config_kt, text)
                 applied("P-80.2: 5 software LSC accessors added (marker+EOL approach)")
@@ -375,7 +376,7 @@ def p81_quadbay_remosaic(source_dir):
             if acc_idx >= 0:
                 acc_eol = text.find('\n', acc_idx)
                 if acc_eol >= 0:
-                    new_acc = '\nval quadBayerRemosaicForced: Boolean get() = currentConfig?.sensors?.forceQuadBayerRemosaic ?: false'
+                    new_acc = '\nval quadBayerRemosaicForced: Boolean get() = currentConfig?.sensors?.forceQuadBayerRemosaic ?: false\n'
                     text = text[:acc_eol+1] + new_acc + text[acc_eol+1:]
             write_file(config_kt, text)
             applied("P-81.2: force_quad_bayer_remosaic field + accessor added")
@@ -474,7 +475,8 @@ val nightModeForceLongExposure: Boolean
     }
 val nightModeLongExposureMaxNs: Long
     get() = if (isNightMode && nightModeLongExposureMs > 0) nightModeLongExposureMs * 1_000_000L
-            else 10_000_000L'''
+            else 10_000_000L
+'''
                 text = text[:eol+1] + new_lines + text[eol+1:]
                 write_file(config_kt, text)
                 applied("P-83.2: 5 night mode accessors added (marker+EOL approach)")
@@ -692,7 +694,8 @@ val zslBufferSize: Int
     get() {
         val mode = captureModeSettings ?: return 5
         return (mode.zslBufferSize ?: 5).coerceIn(3, 10)
-    }'''
+    }
+'''
                         text = text[:acc_eol+1] + new_acc + text[acc_eol+1:]
             write_file(config_kt, text)
             applied("P-84.2: ZSL fields + accessors added (marker+EOL approach)")
