@@ -72,7 +72,7 @@ def p80_software_lsc(source_dir):
         else:
             warn("P-80.1: LensCorrectionConfig anchor not matched")
 
-    # P-80.2: Add accessors
+    # P-80.2: Add accessors using robust marker+EOL approach (like v65.py U-01 K.2)
     text = read_file(config_kt)
     if text is None:
         return count
@@ -80,20 +80,25 @@ def p80_software_lsc(source_dir):
         applied("P-80.2: accessors already present")
         count += 1
     else:
-        old = 'val lensChromaticAberration: Boolean get() = currentConfig?.lensCorrection?.chromaticAberration ?: true'
-        new = old + '''
+        marker = "val lensChromaticAberration:"
+        idx = text.find(marker)
+        if idx >= 0:
+            eol = text.find('\n', idx)
+            if eol >= 0:
+                new_lines = '''
 val lensVignetteCorrectionStrength: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionStrength ?: 0.5f
 val lensVignetteCorrectionRadius: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionRadius ?: 0.7f
 val lensVignetteCorrectionTintRed: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintRed ?: 0.0f
 val lensVignetteCorrectionTintGreen: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintGreen ?: -0.05f
 val lensVignetteCorrectionTintBlue: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintBlue ?: 0.0f'''
-        text, n = replace_exact(text, old, new)
-        if n == 1:
-            write_file(config_kt, text)
-            applied("P-80.2: 5 software LSC accessors added")
-            count += 1
+                text = text[:eol+1] + new_lines + text[eol+1:]
+                write_file(config_kt, text)
+                applied("P-80.2: 5 software LSC accessors added (marker+EOL approach)")
+                count += 1
+            else:
+                warn("P-80.2: lensChromaticAberration EOL not found")
         else:
-            warn("P-80.2: lensChromaticAberration accessor anchor not matched")
+            warn("P-80.2: lensChromaticAberration marker not found")
 
     # P-80.3: Extend JSON
     text = read_file(json_file)
@@ -340,7 +345,7 @@ def p81_quadbay_remosaic(source_dir):
         else:
             warn("P-81.1: RawMetadata when-block anchor not matched")
 
-    # P-81.2: Add force_quad_bayer_remosaic field + accessor
+    # P-81.2: Add force_quad_bayer_remosaic field + accessor (robust marker approach)
     text = read_file(config_kt)
     if text is None:
         warn("P-81.2: LeicaConfig.kt not found")
@@ -349,36 +354,31 @@ def p81_quadbay_remosaic(source_dir):
         applied("P-81.2: quadBayerRemosaicForced accessor already present")
         count += 1
     else:
-        # Try multiple anchor formats for SensorsConfig closing
-        old_variants = [
-            '        @SerializedName("mtk_raw_bpp") val mtkRawBpp: Int? = 14,\n    )',
-            '        @SerializedName("mtk_raw_bpp") val mtkRawBpp: Int? = null,\n    )',
-        ]
-        new_template = '''        @SerializedName("mtk_raw_bpp") val mtkRawBpp: Int? = {BPP_DEFAULT},
-        @SerializedName("force_quad_bayer_remosaic") val forceQuadBayerRemosaic: Boolean? = false,
-    )'''
+        marker = 'val mtkRawBpp: Int? = '
+        idx = text.find(marker)
         matched = False
-        for old in old_variants:
-            default_val = "14" if "= 14" in old else "null"
-            new = new_template.replace("{BPP_DEFAULT}", default_val)
-            text, n = replace_exact(text, old, new)
-            if n == 1:
-                matched = True
-                break
+        if idx >= 0:
+            eol = text.find('\n', idx)
+            if eol >= 0:
+                close_idx = text.find('\n    )', eol)
+                if close_idx >= 0:
+                    new_field = ',\n        @SerializedName("force_quad_bayer_remosaic") val forceQuadBayerRemosaic: Boolean? = false'
+                    prev_eol = text.rfind('\n', idx, close_idx)
+                    text = text[:prev_eol] + ',' + text[prev_eol:close_idx] + new_field + text[close_idx:]
+                    matched = True
         if matched:
-            # Now add accessor
-            old_acc = 'val lensChromaticAberration: Boolean get() = currentConfig?.lensCorrection?.chromaticAberration ?: true'
-            new_acc = old_acc + '''
-val quadBayerRemosaicForced: Boolean get() = currentConfig?.sensors?.forceQuadBayerRemosaic ?: false'''
-            text, n2 = replace_exact(text, old_acc, new_acc)
+            acc_marker = "val lensChromaticAberration:"
+            acc_idx = text.find(acc_marker)
+            if acc_idx >= 0:
+                acc_eol = text.find('\n', acc_idx)
+                if acc_eol >= 0:
+                    new_acc = '\nval quadBayerRemosaicForced: Boolean get() = currentConfig?.sensors?.forceQuadBayerRemosaic ?: false'
+                    text = text[:acc_eol+1] + new_acc + text[acc_eol+1:]
             write_file(config_kt, text)
-            if n2 == 1:
-                applied("P-81.2: force_quad_bayer_remosaic field + accessor added")
-            else:
-                applied("P-81.2: field added (accessor anchor not matched - non-critical)")
+            applied("P-81.2: force_quad_bayer_remosaic field + accessor added")
             count += 1
         else:
-            warn("P-81.2: SensorsConfig mtkRawBpp anchor not matched")
+            warn("P-81.2: SensorsConfig mtkRawBpp marker not found")
 
     # P-81.3: Add to JSON sensors section
     text = read_file(json_file)
@@ -436,7 +436,7 @@ def p83_night_mode(source_dir):
         else:
             warn("P-83.1: CaptureModeSettings anchor not matched")
 
-    # P-83.2: Add night mode accessors
+    # P-83.2: Add night mode accessors (robust marker approach)
     text = read_file(config_kt)
     if text is None:
         return count
@@ -444,9 +444,15 @@ def p83_night_mode(source_dir):
         applied("P-83.2: night mode accessors already present")
         count += 1
     else:
-        # Insert after quadBayerRemosaicForced (added by P-81.2)
-        old = 'val quadBayerRemosaicForced: Boolean get() = currentConfig?.sensors?.forceQuadBayerRemosaic ?: false'
-        new = old + '''
+        marker = "val quadBayerRemosaicForced:"
+        idx = text.find(marker)
+        if idx < 0:
+            marker = "val lensChromaticAberration:"
+            idx = text.find(marker)
+        if idx >= 0:
+            eol = text.find('\n', idx)
+            if eol >= 0:
+                new_lines = '''
 val isNightMode: Boolean get() = activeCaptureMode == "mode_night"
 val nightModeLongExposureMs: Int
     get() {
@@ -466,13 +472,14 @@ val nightModeForceLongExposure: Boolean
 val nightModeLongExposureMaxNs: Long
     get() = if (isNightMode && nightModeLongExposureMs > 0) nightModeLongExposureMs * 1_000_000L
             else 10_000_000L'''
-        text, n = replace_exact(text, old, new)
-        if n == 1:
-            write_file(config_kt, text)
-            applied("P-83.2: 5 night mode accessors added")
-            count += 1
+                text = text[:eol+1] + new_lines + text[eol+1:]
+                write_file(config_kt, text)
+                applied("P-83.2: 5 night mode accessors added (marker+EOL approach)")
+                count += 1
+            else:
+                warn("P-83.2: marker EOL not found")
         else:
-            warn("P-83.2: P-81 accessor anchor not matched (dependency)")
+            warn("P-83.2: quadBayerRemosaicForced/lensChromaticAberration marker not found")
 
     # P-83.3: Add mode_night to JSON
     text = read_file(json_file)
@@ -626,7 +633,7 @@ class ZslBufferManager(
         applied("P-84.1: ZslBufferManager.kt created")
         count += 1
 
-    # P-84.2: Add ZSL accessors to LeicaConfig
+    # P-84.2: Add ZSL accessors to LeicaConfig (robust marker approach)
     text = read_file(config_kt)
     if text is None:
         warn("P-84.2: LeicaConfig.kt not found")
@@ -635,19 +642,28 @@ class ZslBufferManager(
         applied("P-84.2: ZSL accessors already present")
         count += 1
     else:
-        # Try after forceLongExposure (P-83.1)
-        old = '        @SerializedName("force_long_exposure") val forceLongExposure: Boolean? = false,\n    )'
-        new = '''        @SerializedName("force_long_exposure") val forceLongExposure: Boolean? = false,
-        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,
-        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5,
-    )'''
-        text, n = replace_exact(text, old, new)
-        if n == 1:
-            # Add accessors after nightModeLongExposureMaxNs
-            old_acc = '''val nightModeLongExposureMaxNs: Long
-    get() = if (isNightMode && nightModeLongExposureMs > 0) nightModeLongExposureMs * 1_000_000L
-            else 10_000_000L'''
-            new_acc = old_acc + '''
+        marker = 'val thermalThrottleAtC:'
+        idx = text.find(marker)
+        matched = False
+        if idx >= 0:
+            eol = text.find('\n', idx)
+            if eol >= 0:
+                close_idx = text.find('\n    )', eol)
+                if close_idx >= 0:
+                    new_fields = ',\n        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,\n        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5'
+                    prev_eol = text.rfind('\n', idx, close_idx)
+                    text = text[:prev_eol] + ',' + text[prev_eol:close_idx] + new_fields + text[close_idx:]
+                    matched = True
+        if matched:
+            acc_marker = "val nightModeLongExposureMaxNs:"
+            acc_idx = text.find(acc_marker)
+            if acc_idx >= 0:
+                acc_end_marker = 'else 10_000_000L'
+                acc_end_idx = text.find(acc_end_marker, acc_idx)
+                if acc_end_idx >= 0:
+                    acc_eol = text.find('\n', acc_end_idx)
+                    if acc_eol >= 0:
+                        new_acc = '''
 val zslBufferEnabled: Boolean
     get() {
         val mode = captureModeSettings ?: return false
@@ -658,15 +674,12 @@ val zslBufferSize: Int
         val mode = captureModeSettings ?: return 5
         return (mode.zslBufferSize ?: 5).coerceIn(3, 10)
     }'''
-            text, n2 = replace_exact(text, old_acc, new_acc)
+                        text = text[:acc_eol+1] + new_acc + text[acc_eol+1:]
             write_file(config_kt, text)
-            if n2 == 1:
-                applied("P-84.2: ZSL fields + accessors added")
-            else:
-                applied("P-84.2: ZSL fields added (accessor anchor not matched - non-critical)")
+            applied("P-84.2: ZSL fields + accessors added (marker+EOL approach)")
             count += 1
         else:
-            warn("P-84.2: CaptureModeSettings anchor not matched")
+            warn("P-84.2: CaptureModeSettings thermalThrottleAtC marker not found")
 
     # P-84.3: Add zsl_buffer fields to JSON
     text = read_file(json_file)
