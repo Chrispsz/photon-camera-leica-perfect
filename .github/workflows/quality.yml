@@ -1,0 +1,73 @@
+name: Quality Gate
+
+# Runs lint + tests on every PR and push to main.
+# This is the FAST gate (~30s) that catches broken patches/manifest/tests
+# BEFORE the heavy APK build (build.yml, ~45min) is triggered.
+#
+# If this fails, the build.yml workflow still runs (they're independent) but
+# the failure is visible on the PR/push check suite immediately.
+#
+# To make this a REQUIRED check before merge: GitHub repo → Settings →
+# Branches → main → Require status checks to pass → "Quality Gate".
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11+ (for tomllib)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install shellcheck (advisory, non-blocking)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck 2>/dev/null || true
+
+      - name: Show environment
+        run: |
+          echo "Python: $(python3 --version)"
+          echo "Bash: $(bash --version | head -1)"
+          echo "Shellcheck: $(shellcheck --version 2>/dev/null | grep '^version:' || echo 'not installed')"
+          echo "Repo root: $PWD"
+          echo "---"
+          echo "Files in patches/:"
+          ls -la patches/
+          echo "---"
+          echo "Files in tests/:"
+          ls -la tests/
+          echo "---"
+          echo "Files in patches/upgrades/:"
+          ls -la patches/upgrades/ 2>/dev/null || echo "(not present)"
+
+      - name: Run quality gate (lint + tests)
+        run: |
+          chmod +x tests/*.sh tests/*.py
+          ./tests/run_all.sh
+
+      - name: Upload test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-gate-log
+          path: |
+            tests/__pycache__/
+            patches/upgrades/__pycache__/
+          if-no-files-found: ignore
+          retention-days: 7

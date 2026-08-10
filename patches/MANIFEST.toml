@@ -1,0 +1,1064 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MANIFEST.toml — Photon Camera Leica Perfect v6.5.0 — Patch Registry
+# ═══════════════════════════════════════════════════════════════════════════════
+# Single source of truth for all 84 patches (P-1..P-78 + U-01..U-06).
+# Validated by tests/lint_manifest.py on every PR via .github/workflows/quality.yml.
+#
+# Schema:
+#   id          = "P-NN" or "U-NN"           (string, unique, required)
+#   title       = "<short description>"       (string, required)
+#   category    = "<one of categories above>" (string, required)
+#   version     = "<fork version introduced>" (string, e.g. "6.4.10")
+#   file        = "<where the patch logic lives>" (string, file path)
+#   line        = <line number in file>      (integer)
+#   affects     = ["File1.kt", "File2.kt"]   (array of strings, .kt basenames)
+#   depends_on  = ["P-NN", ...]              (array of strings, can be empty)
+#   status      = "active" | "deprecated" | "documentation-only"
+#
+# Categories:
+#   CORE_TONE_MAPPING      P-1..P-7      — tone mapping, sharpening, NLM, metering, config loader
+#   MULTI_FRAME_HDR        P-8..P-20     — multi-frame, HDR, demosaic, processing, DCP
+#   METRICS_EXPORT         P-21..P-28    — Mertens, vignette, DNG, JPEG/HEIC, branding, ISP
+#   PER_LENS               P-29..P-36+P-50 — v6.0 per-lens intelligence
+#   WIRING                 P-37..P-43    — v6.1+v6.2 wiring white/black level, DCP ratio, SR DNG, AgX, gainmap
+#   RUNTIME_ACTIVATION     P-44..P-45    — v6.2.5 runtime activation + branding
+#   UI                     P-46..P-48    — v6.2.6 UI settings panel, viewfinder button, runtime state
+#   RUNTIME_NLM            P-49..P-53    — v6.3.x runtime wiring, Live Photo, NLM radius
+#   COLOR_SCIENCE          P-54          — v6.3.6 creative profile color science
+#   VIDEO                  P-55,P-56,P-70 — video settings + encoder + 4K stability
+#   CAMERA2_PARAMS         P-57..P-59    — Camera2 direct params, noise model, thermal
+#   BUILD_FIXES            P-60..P-61    — doNotStrip + LeicaStateDumper
+#   CAPTURE_MODES          P-62..P-65    — v6.4.0 drop RAW + 2 modes + LUT picker + one-click max
+#   UI_LUT                 P-67..P-68    — v6.4.1-4.2 LUT picker runtime
+#   PHOTO_QUALITY          P-69          — v6.4.3 photo quality defaults
+#   COMPOSITION            P-71          — v6.4.4 composition aids
+#   RAW_ON_DEMAND          P-72          — v6.4.5 RAW on-demand
+#   BUILD_OPTIMIZATION     P-66,P-73,P-74 — ccache, mode_fast removal, Release APK + R8
+#   NATURAL_BASELINE       P-75..P-76    — v6.4.7-4.8 natural baseline + night precision
+#   NIGHT_DENOISE          P-77..P-78    — v6.4.9-4.10 real night denoise + wire NR to algorithm
+#   V6_5_UPGRADES          U-01..U-06    — v6.5 VLM-driven pipeline fixes (applied via P-79)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ── Tier 1 — Core: Config loader, tone mapping, sharpening, NLM, metering (P-1..P-7) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-01"
+title = "Instalar LeicaConfig.kt + leica_perfect.json"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 240
+affects = ["LeicaConfig.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-02"
+title = "RawToneMappingParameters AgX defaults"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 261
+affects = ["RawToneMappingParameters.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-03"
+title = "RawShaders USM radius/threshold"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 287
+affects = ["RawShaders.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-04"
+title = "DenoiseProfileShaders NLM radius"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 309
+affects = ["DenoiseProfileShaders.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-05"
+title = "RcdShaders highlight reconstruction"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 331
+affects = ["RcdShaders.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-06"
+title = "MeteringSystem center weight"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 351
+affects = ["MeteringSystem.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-07"
+title = "RawRenderingEngine exposure"
+category = "CORE_TONE_MAPPING"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 365
+affects = ["RawRenderingEngine.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 2 — Multi-frame, HDR, demosaic, processing, DCP (P-8..P-20) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-08"
+title = "MultiFrameConfig frame count"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 389
+affects = ["MultiFrameConfig.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-09"
+title = "HdrBracketConfig EV spacing"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 407
+affects = ["HdrBracketConfig.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-10"
+title = "UserPreferencesRepository RAWmax defaults"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 422
+affects = ["UserPreferencesRepository.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-11"
+title = "DngProfileToneCurve PGTM"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 437
+affects = ["DngProfileToneCurve.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-12"
+title = "RawToneMappingGl Filmic"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 460
+affects = ["RawToneMappingGl.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-13"
+title = "DngPhotonProfileGainTableGenerator PGTM"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 475
+affects = ["DngPhotonProfileGainTableGenerator.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-14"
+title = "HncsProfile film curve gain"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 498
+affects = ["HncsProfile.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-15"
+title = "MultiFrameConfig long/short frame EV"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 518
+affects = ["MultiFrameConfig.kt"]
+depends_on = ["P-08"]
+status = "active"
+
+[[patch]]
+id = "P-16"
+title = "GlesYuvStacker Mertens weights"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 540
+affects = ["GlesYuvStacker.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-17"
+title = "RawMetadata white level override"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 556
+affects = ["RawMetadata.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-18"
+title = "RawMetadata black level override"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 601
+affects = ["RawMetadata.kt"]
+depends_on = ["P-17"]
+status = "active"
+
+[[patch]]
+id = "P-19"
+title = "Force Leica DCP/LUT/frame"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 639
+affects = ["RawDemosaicProcessor.kt", "BaselineColorCorrection.kt", "CameraViewModel.kt", "GalleryManager.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-20"
+title = "DcpProfile illuminant ratios"
+category = "MULTI_FRAME_HDR"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 721
+affects = ["DcpProfile.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 3 — Mertens, vignette, DNG export, JPEG/HEIC quality, branding, ISP (P-21..P-28) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-21"
+title = "GlesYuvStacker SR scale"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 745
+affects = ["GlesYuvStacker.kt"]
+depends_on = ["P-16"]
+status = "active"
+
+[[patch]]
+id = "P-22"
+title = "RawStackTuningProfile SR thresholds"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 756
+affects = ["RawStackTuningProfile.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-23"
+title = "Jpeg444ExportEncoder quality + gainmap"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 776
+affects = ["Jpeg444ExportEncoder.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-24"
+title = "HeicExportEncoder HEIC Q100"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 793
+affects = ["HeicExportEncoder.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-25"
+title = "UltraHdrWriter UltraHDR Q100"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 815
+affects = ["UltraHdrWriter.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-26"
+title = "SuperResolutionDngWriter branding"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 836
+affects = ["SuperResolutionDngWriter.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-27"
+title = "GalleryManager DNG export default"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 857
+affects = ["GalleryManager.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-28"
+title = "Camera2Controller HQ ISP for stills"
+category = "METRICS_EXPORT"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 871
+affects = ["Camera2Controller.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 8 — v6.3.x runtime wiring — Live Photo, NLM radius (P-49..P-53) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-50"
+title = "RawMetadata lensKey foundation"
+category = "RUNTIME_NLM"
+version = "6.3.0"
+file = "build-archlinux.sh"
+line = 893
+affects = ["RawMetadata.kt"]
+depends_on = ["P-17"]
+status = "active"
+
+
+# ── Tier 4 — v6.0 per-lens intelligence (P-29..P-36 + P-50) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-29"
+title = "DcpProfile per-channel saturation via CCM pre-multiply"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 940
+affects = ["DcpProfile.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-30"
+title = "DcpProfile CCM tint shift per-lens"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 979
+affects = ["DcpProfile.kt"]
+depends_on = ["P-29", "P-50"]
+status = "active"
+
+[[patch]]
+id = "P-31"
+title = "Camera2Controller wire frameCountForCamera"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1025
+affects = ["Camera2Controller.kt", "MultiFrameConfig.kt"]
+depends_on = ["P-08"]
+status = "active"
+
+[[patch]]
+id = "P-32"
+title = "VideoTypes defaults em data class)"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1068
+affects = ["VideoTypes.kt", "VideoRecorder.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-33"
+title = "ColorTintShift per-lens"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1127
+affects = ["DcpProfile.kt"]
+depends_on = ["P-30", "P-50"]
+status = "active"
+
+[[patch]]
+id = "P-34"
+title = "PerChannelSaturation per-lens"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1138
+affects = ["DcpProfile.kt"]
+depends_on = ["P-29", "P-50"]
+status = "active"
+
+[[patch]]
+id = "P-35"
+title = "HighQualityIspPreview"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1148
+affects = ["Camera2Controller.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-36"
+title = "NoiseModelFallback per-lens"
+category = "PER_LENS"
+version = "6.0.0"
+file = "build-archlinux.sh"
+line = 1172
+affects = ["RawMetadata.kt"]
+depends_on = ["P-50"]
+status = "active"
+
+
+# ── Tier 5 — v6.1+v6.2 JSON→runtime wiring (P-37..P-43) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-37"
+title = "WhiteLevelWiring (SKIPPED — P-17 já substitui ?: 1023f em RawMetadata)"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1227
+affects = ["RawMetadata.kt"]
+depends_on = ["P-17"]
+status = "deprecated"
+
+[[patch]]
+id = "P-38"
+title = "BlackLevelWiring RawMetadata (SKIPPED — P-18 já substituiu floatArrayOf(64f, 64f, 64f, 64f))"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1239
+affects = ["RawMetadata.kt"]
+depends_on = ["P-18"]
+status = "deprecated"
+
+[[patch]]
+id = "P-39"
+title = "PerLensDcpRatio (SKIPPED — cameraId não em scope, P-20 já faz global)"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1245
+affects = ["DcpProfile.kt"]
+depends_on = ["P-20"]
+status = "deprecated"
+
+[[patch]]
+id = "P-40"
+title = "SuperResDngExport force"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1251
+affects = ["GalleryManager.kt"]
+depends_on = ["P-27"]
+status = "active"
+
+[[patch]]
+id = "P-41"
+title = "PerLensAgxToneMapping forLens factory"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1264
+affects = ["RawToneMappingParameters.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-42"
+title = "GainmapQualityMax Q100 + const-val race fix"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1293
+affects = ["Jpeg444ExportEncoder.kt"]
+depends_on = ["P-23"]
+status = "active"
+
+[[patch]]
+id = "P-43"
+title = "PerLensAgxConsumer CameraViewModel resolveCaptureRawToneMappingParameters"
+category = "WIRING"
+version = "6.1.0"
+file = "build-archlinux.sh"
+line = 1312
+affects = ["CameraViewModel.kt"]
+depends_on = ["P-41"]
+status = "active"
+
+
+# ── Tier 6 — v6.2.5 RUNTIME ACTIVATION + branding (P-44..P-45) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-44"
+title = "MyCameraApplication — load LeicaConfig from assets at startup"
+category = "RUNTIME_ACTIVATION"
+version = "6.2.5"
+file = "build-archlinux.sh"
+line = 1341
+affects = ["MyCameraApplication.kt"]
+depends_on = ["P-01"]
+status = "active"
+
+[[patch]]
+id = "P-45"
+title = "Branding — app_name Photon Camera → Leica Perfect (all locales)"
+category = "RUNTIME_ACTIVATION"
+version = "6.2.5"
+file = "build-archlinux.sh"
+line = 1381
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 7 — v6.2.6 UI — Settings panel + viewfinder button + runtime state (P-46..P-48) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-48"
+title = "Instalar LeicaRuntimeState.kt (mutable state + persistence)"
+category = "UI"
+version = "6.2.6"
+file = "build-archlinux.sh"
+line = 1433
+affects = ["LeicaRuntimeState.kt", "LeicaConfig.kt", "MyCameraApplication.kt"]
+depends_on = ["P-44", "P-01"]
+status = "active"
+
+
+# ── Tier 8 — v6.3.x runtime wiring — Live Photo, NLM radius (P-49..P-53) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-49"
+title = "LivePhotoRecorder — wire LeicaConfig (CRITICAL: video was H.264 8Mbps)"
+category = "RUNTIME_NLM"
+version = "6.3.0"
+file = "build-archlinux.sh"
+line = 1537
+affects = ["LivePhotoRecorder.kt"]
+depends_on = ["P-32"]
+status = "active"
+
+
+# ── Tier 7 — v6.2.6 UI — Settings panel + viewfinder button + runtime state (P-46..P-48) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-46"
+title = "Instalar LeicaSettingsScreen.kt (Compose settings panel)"
+category = "UI"
+version = "6.2.6"
+file = "build-archlinux.sh"
+line = 1590
+affects = ["LeicaSettingsScreen.kt", "MainActivity.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-47"
+title = "CameraTopBar — add onLeicaModeClick parameter"
+category = "UI"
+version = "6.2.6"
+file = "build-archlinux.sh"
+line = 1700
+affects = ["CameraTopBar.kt", "CameraScreen.kt", "MainActivity.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 8 — v6.3.x runtime wiring — Live Photo, NLM radius (P-49..P-53) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-51"
+title = "Compilation fixes"
+category = "RUNTIME_NLM"
+version = "6.3.0"
+file = "build-archlinux.sh"
+line = 2008
+affects = ["DcpProfile.kt", "DenoiseProfileShaders.kt", "DngPhotonProfileGainTableGenerator.kt", "MultiFrameConfig.kt", "RawMetadata.kt", "VideoTypes.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-52"
+title = "Runtime Wiring — menu → pipeline"
+category = "RUNTIME_NLM"
+version = "6.3.0"
+file = "build-archlinux.sh"
+line = 2130
+affects = ["CameraViewModel.kt", "UserPreferencesRepository.kt", "MyCameraApplication.kt"]
+depends_on = ["P-48"]
+status = "active"
+
+[[patch]]
+id = "P-53"
+title = "Runtime NLM radius — capture-mode-aware without recompile"
+category = "RUNTIME_NLM"
+version = "6.3.0"
+file = "build-archlinux.sh"
+line = 2249
+affects = ["RawDemosaicProcessor.kt", "LutImageProcessor.kt", "LeicaConfig.kt"]
+depends_on = ["P-04"]
+status = "active"
+
+
+# ── Tier 9 — v6.3.6 creative profile color science (P-54) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-54"
+title = "Creative Profile Color Science — effective* accessors wired"
+category = "COLOR_SCIENCE"
+version = "6.3.6"
+file = "build-archlinux.sh"
+line = 2342
+affects = ["RawToneMappingGl.kt", "LutImageProcessor.kt", "RawDemosaicProcessor.kt"]
+depends_on = ["P-30", "P-29"]
+status = "active"
+
+
+# ── Tier 10/12 — Video settings + encoder + 4K stability (P-55, P-56, P-70) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-55"
+title = "Video settings actually apply — UserPreferencesRepository fallbacks → LeicaConfig"
+category = "VIDEO"
+version = "6.3.7"
+file = "build-archlinux.sh"
+line = 2483
+affects = ["UserPreferencesRepository.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-56"
+title = "Video encoder completeness — AUDIO_SAMPLE_RATE + AUDIO_MIME + AAC_PROFILE gate + HDR10 static info + bitrate mode override"
+category = "VIDEO"
+version = "6.3.8"
+file = "build-archlinux.sh"
+line = 2560
+affects = ["VideoRecorder.kt", "VideoEncoderColorConfig.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 12 — Camera2 direct params + noise model + thermal (P-57..P-59) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-59"
+title = "Thermal monitor — battery temp gate before capture"
+category = "CAMERA2_PARAMS"
+version = "6.3.8"
+file = "build-archlinux.sh"
+line = 2840
+affects = ["LeicaThermalMonitor.kt", "CameraViewModel.kt", "MyCameraApplication.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-57"
+title = "Camera2 direct params per-lens — EDGE_MODE + NR_MODE + SHADING_MODE + HOT_PIXEL_MODE + TONEMAP_MODE"
+category = "CAMERA2_PARAMS"
+version = "6.3.8"
+file = "build-archlinux.sh"
+line = 2982
+affects = ["Camera2Controller.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-58"
+title = "Noise model completion — chroma denoise fallback constants wired to LeicaConfig"
+category = "CAMERA2_PARAMS"
+version = "6.3.8"
+file = "build-archlinux.sh"
+line = 3173
+affects = ["LutImageProcessor.kt", "RawDemosaicProcessor.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 13 — v6.3.8-fix4 doNotStrip + LeicaStateDumper (P-60..P-61) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-60"
+title = "doNotStrip in build.gradle.kts — Kotlin DSL append block"
+category = "BUILD_FIXES"
+version = "6.3.8-fix4"
+file = "build-archlinux.sh"
+line = 3311
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 14f/21/22 — ccache, mode_fast removal, Release APK + R8 (P-66, P-73, P-74) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-66"
+title = "ccache launcher in build.gradle.kts"
+category = "BUILD_OPTIMIZATION"
+version = "6.4.0-fix12"
+file = "build-archlinux.sh"
+line = 3362
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 13 — v6.3.8-fix4 doNotStrip + LeicaStateDumper (P-60..P-61) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-61"
+title = "Install LeicaStateDumper.kt — comprehensive config dump to logcat"
+category = "BUILD_FIXES"
+version = "6.3.8-fix4"
+file = "build-archlinux.sh"
+line = 3414
+affects = ["LeicaStateDumper.kt", "MyCameraApplication.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 14 — v6.4.0 drop RAW + 2 modes + LUT picker + one-click max (P-62..P-65) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-62"
+title = "Cron 7 — Drop RAW + 2 capture modes"
+category = "CAPTURE_MODES"
+version = "6.4.0"
+file = "build-archlinux.sh"
+line = 3469
+affects = ["LeicaConfig.kt", "LeicaSettingsScreen.kt", "LeicaThermalMonitor.kt", "LeicaRuntimeState.kt"]
+depends_on = ["P-46"]
+status = "active"
+
+[[patch]]
+id = "P-63"
+title = "Cron 8 — LUT picker override"
+category = "CAPTURE_MODES"
+version = "6.4.0"
+file = "build-archlinux.sh"
+line = 3730
+affects = ["LeicaConfig.kt", "LeicaRuntimeState.kt"]
+depends_on = ["P-01"]
+status = "active"
+
+[[patch]]
+id = "P-64"
+title = "Cron 8 — 5 best LUTs in mod menu"
+category = "CAPTURE_MODES"
+version = "6.4.0"
+file = "build-archlinux.sh"
+line = 3903
+affects = ["LeicaSettingsScreen.kt"]
+depends_on = ["P-46", "P-63"]
+status = "active"
+
+[[patch]]
+id = "P-65"
+title = "Cron 9 — One-click JPEG max optimization"
+category = "CAPTURE_MODES"
+version = "6.4.0"
+file = "build-archlinux.sh"
+line = 4094
+affects = ["LeicaConfig.kt", "LeicaSettingsScreen.kt"]
+depends_on = ["P-62"]
+status = "active"
+
+
+# ── Tier 14b — v6.4.1-4.2 LUT picker runtime (P-67..P-68) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-67"
+title = "Cron 10 — UI LUT picker runtime override"
+category = "UI_LUT"
+version = "6.4.1"
+file = "build-archlinux.sh"
+line = 4352
+affects = ["CameraViewModel.kt", "LeicaConfig.kt", "CameraScreen.kt"]
+depends_on = ["P-63", "P-64"]
+status = "active"
+
+[[patch]]
+id = "P-68"
+title = "Cron 11 — live preview LUT picker (P-52a respects runtimeLutOverride)"
+category = "UI_LUT"
+version = "6.4.2"
+file = "build-archlinux.sh"
+line = 4499
+affects = ["CameraViewModel.kt", "UserPreferencesRepository.kt"]
+depends_on = ["P-67", "P-52"]
+status = "active"
+
+
+# ── Tier 14c — v6.4.3 photo quality defaults (P-69) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-69"
+title = "Cron 12 — photo quality defaults (8 settings)"
+category = "PHOTO_QUALITY"
+version = "6.4.3"
+file = "build-archlinux.sh"
+line = 4603
+affects = ["UserPreferencesRepository.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 10/12 — Video settings + encoder + 4K stability (P-55, P-56, P-70) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-70"
+title = "Cron 12 — video 4K stability fix"
+category = "VIDEO"
+version = "6.4.3"
+file = "build-archlinux.sh"
+line = 4840
+affects = ["VideoRecorder.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 14d — v6.4.4 composition aids (P-71) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-71"
+title = "Cron 13 — composition aids ON (grid + horizon + DNG)"
+category = "COMPOSITION"
+version = "6.4.4"
+file = "build-archlinux.sh"
+line = 5041
+affects = ["UserPreferencesRepository.kt", "CameraViewModel.kt", "CameraTopSheet.kt"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 14e — v6.4.5 RAW on-demand (P-72) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-72"
+title = "Cron 14 — RAW on-demand (unblock force_no_raw)"
+category = "RAW_ON_DEMAND"
+version = "6.4.5"
+file = "build-archlinux.sh"
+line = 5181
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 14f/21/22 — ccache, mode_fast removal, Release APK + R8 (P-66, P-73, P-74) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-73"
+title = "Remove mode_fast — single capture mode"
+category = "BUILD_OPTIMIZATION"
+version = "6.4.6"
+file = "build-archlinux.sh"
+line = 5256
+affects = ["LeicaConfig.kt", "LeicaSettingsScreen.kt", "LeicaThermalMonitor.kt"]
+depends_on = ["P-62"]
+status = "active"
+
+[[patch]]
+id = "P-74"
+title = "Release APK + R8 + arm64-v8a only"
+category = "BUILD_OPTIMIZATION"
+version = "6.4.6"
+file = "build-archlinux.sh"
+line = 5356
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+
+# ── Tier 23/24 — v6.4.7-4.8 natural baseline + night precision (P-75..P-76) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-75"
+title = "Natural baseline (LUT none) + fix latent baseline_lut_id bug"
+category = "NATURAL_BASELINE"
+version = "6.4.7"
+file = "build-archlinux.sh"
+line = 5493
+affects = ["unknown"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "P-76"
+title = "Night precision (revert P-75 LUT + AgX softer + NR luma up)"
+category = "NATURAL_BASELINE"
+version = "6.4.8"
+file = "build-archlinux.sh"
+line = 5531
+affects = ["unknown"]
+depends_on = ["P-75"]
+status = "active"
+
+
+# ── Tier 25/26 — v6.4.9-4.10 real night denoise + wire NR (P-77..P-78) ──────────────────────────────────────────
+
+[[patch]]
+id = "P-77"
+title = "REAL night denoise (chroma NR + exposure reduction)"
+category = "NIGHT_DENOISE"
+version = "6.4.9"
+file = "build-archlinux.sh"
+line = 5603
+affects = ["unknown"]
+depends_on = ["P-76"]
+status = "active"
+
+[[patch]]
+id = "P-78"
+title = "WIRE NR TO ACTUAL ALGORITHM — P-77 was dead config!"
+category = "NIGHT_DENOISE"
+version = "6.4.10"
+file = "build-archlinux.sh"
+line = 5696
+affects = ["GalleryManager.kt", "RawSharpeningDefaults.kt"]
+depends_on = ["P-77"]
+status = "active"
+
+
+# ── v6.5 VLM-driven upgrades (U-01..U-06) — applied via P-79 ──────────────────────────────────────────
+
+[[patch]]
+id = "U-01"
+title = "Denoise Shadows Reinforcement (NLM shadow-band boost + per-lens noise model)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 455
+affects = ["DenoiseProfileShaders.kt", "DenoiseProfileNlmConfig.kt", "RawDemosaicProcessor.kt", "LeicaConfig.kt"]
+depends_on = ["P-04"]
+status = "active"
+
+[[patch]]
+id = "U-02"
+title = "Adaptive Sharpening (-40% amount + Sobel edge mask + noise gate + brightness-adaptive)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 58
+affects = ["RawShaders.kt", "RawDemosaicProcessor.kt", "LutImageProcessor.kt", "RawSharpeningDefaults.kt"]
+depends_on = ["P-03"]
+status = "active"
+
+[[patch]]
+id = "U-03"
+title = "Bilateral to guided filter (He et al. 2010 — kills HDR halos)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 576
+affects = ["ShadowsHighlightsShader.kt", "LutRenderer.kt", "RawDemosaicProcessor.kt", "RealtimeVideoRenderer.kt", "LeicaConfig.kt"]
+depends_on = []
+status = "active"
+
+[[patch]]
+id = "U-04"
+title = "Detail preserve wiring (eliminates oil-painting effect)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 297
+affects = ["ChromaDenoiseShaders.kt", "RawDemosaicProcessor.kt", "LutImageProcessor.kt", "DenoiseProfileNlmConfig.kt"]
+depends_on = ["U-01"]
+status = "active"
+
+[[patch]]
+id = "U-05"
+title = "AWB CCT clamping (M9 CCD stabilization for default AUTO mode)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 819
+affects = ["Camera2Controller.kt", "LeicaConfig.kt"]
+depends_on = ["P-57"]
+status = "active"
+
+[[patch]]
+id = "U-06"
+title = "AE histogram feedback (highlight/shadow protection)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "patches/apply_upgrades_v65.py"
+line = 1074
+affects = ["AeHistogramProtector.kt", "Camera2Controller.kt", "CameraState.kt", "LeicaConfig.kt"]
+depends_on = ["P-06"]
+status = "active"
+
+
+# ── P-79 (DISPATCHER — calls apply_upgrades_v65.py to apply U-01..U-06) ────────
+
+[[patch]]
+id = "P-79"
+title = "DISPATCHER: v6.5 UPGRADES U-01..U-06 (calls apply_upgrades_v65.py)"
+category = "V6_5_UPGRADES"
+version = "6.5.0"
+file = "build-archlinux.sh"
+line = 5816
+affects = ["apply_upgrades_v65.py"]
+depends_on = ["P-78", "U-01", "U-02", "U-03", "U-04", "U-05", "U-06"]
+status = "dispatcher"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Total entries: 79 (P-01..P-79) + 6 (U-01..U-06) = 85 entries
+# (P-79 is a dispatcher, not a content patch — it delegates to U-01..U-06)
+# ═══════════════════════════════════════════════════════════════════════════════

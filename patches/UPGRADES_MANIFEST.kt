@@ -77,12 +77,15 @@
 //   5. U-05 (AWB clamping — Camera2Controller + LeicaConfig)
 //   6. U-06 (AE histogram — Camera2Controller + new file + LeicaConfig)
 //
-// ⚠️  BUG CONHECIDO (U-02): O agente U-04 identificou que U-02 usa `{N;s|...|}` (2 Ns)
-//     onde deveria usar `{N;N;s|...|}` (3 Ns) para o multi-line pattern de
-//     defaultUsmRadius/defaultUsmThreshold. Isso faz com que os uniforms adaptativos
-//     (uEdgeMaskStrength/uNoiseLimit/uDarkLimit/uAdaptive) não sejam bindados.
-//     CORREÇÃO: Auditar U-02_AdaptiveSharpening.patch.kt seção B.3 e C.4, trocar
-//     `{N;s|` por `{N;N;s|` nos seds multi-linha.
+// ⚠️  BUG CONHECIDO (U-02) — RESOLVIDO em v6.5.0 (build 4, commit 782622f):
+//     O bug original era um problema de SED ({N;s|...|} vs {N;N;s|...|}) que
+//     impedia o binding dos uniforms adaptativos (uEdgeMaskStrength/uNoiseLimit/
+//     uDarkLimit/uAdaptive). A reescrita dos patches U-01..U-06 em Python3
+//     (apply_upgrades_v65.py) ELIMINOU este bug — Python usa replace_exact() /
+//     insert_after() com string match exato, não sed multi-linha.
+//     VERIFICAÇÃO: apply_upgrades_v65.py linhas 184-187 (RAW) e 240-243 (LUT)
+//     confirmam que os 4 uniforms são bindados corretamente via GLES30.glUniform*.
+//     Status: OBSOLETO — mantido aqui apenas como histórico.
 //
 // VALIDAÇÃO:
 //   Após aplicar os patches e buildar o APK, refazer as 5 rodadas de avaliação:
