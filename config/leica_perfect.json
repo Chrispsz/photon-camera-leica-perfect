@@ -37,9 +37,9 @@
   },
   "noise_reduction": {
     "enabled": true,
-    "luminance": 0.96,
-    "chrominance": 0.7,
-    "detail_preserve": 0.96,
+    "luminance": 0.98,
+    "chrominance": 0.94,
+    "detail_preserve": 0.85,
     "adaptive": true
   },
   "color": {
@@ -53,7 +53,7 @@
     "enabled": true,
     "contrast": 1.1,
     "highlight_rolloff": 0.35,
-    "shadow_lift": 0.05,
+    "shadow_lift": 0.02,
     "film_like_curve": true
   },
   "lens_correction": {
@@ -100,10 +100,10 @@
     "filmic_grey_source": 0.1845,
     "filmic_default_contrast": 1.6,
     "filmic_default_dynamic_range": 12.5,
-    "default_exposure_ev": 0.88,
+    "default_exposure_ev": 0.5,
     "display_target_luma": 0.21,
     "center_weight_sigma": 0.28,
-    "pgtm_pre_tonemap_exposure_boost_ev": 0.8,
+    "pgtm_pre_tonemap_exposure_boost_ev": 0.4,
     "pgtm_target_dynamic_range": 120,
     "hncs_film_curve_gain": 1.1
   },

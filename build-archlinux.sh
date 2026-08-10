@@ -32,6 +32,7 @@
 #   Tier 22 (P-74):        v6.4.6 Release APK + R8 + arm64-v8a only
 #   Tier 23 (P-75):        v6.4.7 natural baseline (LUT "none" no perfil ativo + fix latent force_baseline_lut_id)
 #   Tier 24 (P-76):        v6.4.8 night precision (revert LUT leica_m9 + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96)
+#   Tier 25 (P-77):        v6.4.9 real night denoise (chroma NR 0.7→0.94 + luma 0.96→0.98 + detail_preserve 0.96→0.85 + shadow_lift 0.05→0.02 + default_exposure 0.88→0.5 + pgtm boost 0.8→0.4)
 #
 # v6.3.5 (Cron 2 fixes): P-52a/b/c paths corrected, P-31 targeted L6801 only,
 #   P-32a bitrate pattern P5→P1, P-53a/b/c runtime NLM radius (C2/C3/C4 from
@@ -81,7 +82,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.4.8"
+readonly FORK_VERSION="6.4.9"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
@@ -5587,6 +5588,87 @@ GRADLE_KT_P74
     fi
     echo ""
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 25 (P-77) — v6.4.9: REAL night denoise — chroma NR + exposure reduction (FIX P-76 incomplete)
+    # ─────────────────────────────────────────────────────────────────────────
+    # User feedback (v6.4.8): "Muito ruído ainda, principalmente nas pessoas"
+    # VLM analysis of 2 night photos (ISO 2127 + ISO 1281):
+    #   - "Chroma Noise is the dominant offender" (red/green/blue specks on walls + faces)
+    #   - "Aggressive Luminance lifting without sufficient NR" (+1.68 EV total boost amplifying ISO 1281-2127 noise ~5x)
+    #   - "Smeared AND Noisy" on people (worst of both worlds — NR too weak + sharpening noise)
+    # Root cause: P-76 boosted luminance NR 0.92→0.96 but COMPLETELY MISSED chrominance (still 0.7)
+    #             and detail_preserve (still 0.96 = preserves noise as detail)
+    # Fix: P-77 attacks chroma noise (dominant offender) + reduces exposure boost + lowers detail_preserve
+    section "P-77: REAL night denoise (chroma NR + exposure reduction) (v6.4.9)"
+    local p77_count=0
+
+    local json_cfg_p77="$SCRIPT_DIR/config/leica_perfect.json"
+    if [[ -f "$json_cfg_p77" ]]; then
+        # P-77.1: noise_reduction.chrominance must be 0.94 (was 0.7 — VLM said chroma is dominant offender, +34% chroma NR)
+        local p77_chroma=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['noise_reduction']['chrominance'])" 2>/dev/null)
+        if [[ "$p77_chroma" == "0.94" ]]; then
+            ok "P-77.1: noise_reduction.chrominance=0.94 confirmed (was 0.7 — +34% chroma NR, kills red/green/blue specks VLM flagged as dominant offender)"
+            ((++p77_count))
+        else
+            warn "P-77.1: expected chrominance=0.94, got \"$p77_chroma\" — chroma noise will persist"
+        fi
+
+        # P-77.2: noise_reduction.luminance must be 0.98 (was 0.96 — +2% more luma NR for night)
+        local p77_luma=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['noise_reduction']['luminance'])" 2>/dev/null)
+        if [[ "$p77_luma" == "0.98" ]]; then
+            ok "P-77.2: noise_reduction.luminance=0.98 confirmed (was 0.96 — +2% luma NR, compensates ISO 1281-2127 night noise)"
+            ((++p77_count))
+        else
+            warn "P-77.2: expected luminance=0.98, got \"$p77_luma\" — luma NR not boosted"
+        fi
+
+        # P-77.3: noise_reduction.detail_preserve must be 0.85 (was 0.96 — -11%, allow more smoothing, stop preserving noise as detail)
+        local p77_dp=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['noise_reduction']['detail_preserve'])" 2>/dev/null)
+        if [[ "$p77_dp" == "0.85" ]]; then
+            ok "P-77.3: noise_reduction.detail_preserve=0.85 confirmed (was 0.96 — -11%, allows NR to actually smooth noise instead of preserving it as fake detail)"
+            ((++p77_count))
+        else
+            warn "P-77.3: expected detail_preserve=0.85, got \"$p77_dp\" — NR still constrained by high detail preservation"
+        fi
+
+        # P-77.4: tone_mapping.shadow_lift must be 0.02 (was 0.05 — -60%, stop revealing sensor noise in shadows)
+        local p77_sl=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['tone_mapping']['shadow_lift'])" 2>/dev/null)
+        if [[ "$p77_sl" == "0.02" ]]; then
+            ok "P-77.4: tone_mapping.shadow_lift=0.02 confirmed (was 0.05 — -60%, shadows stay dark = less noise visible in dark areas VLM flagged)"
+            ((++p77_count))
+        else
+            warn "P-77.4: expected shadow_lift=0.02, got \"$p77_sl\" — shadows still being lifted, exposing noise"
+        fi
+
+        # P-77.5: processing.default_exposure_ev must be 0.5 (was 0.88 — -43%, less aggressive exposure lift = less noise amplification)
+        local p77_de=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['processing']['default_exposure_ev'])" 2>/dev/null)
+        if [[ "$p77_de" == "0.5" ]]; then
+            ok "P-77.5: processing.default_exposure_ev=0.5 confirmed (was 0.88 — -43% default exposure lift, ISO 1281-2127 noise no longer amplified ~1.8x by default EV)"
+            ((++p77_count))
+        else
+            warn "P-77.5: expected default_exposure_ev=0.5, got \"$p77_de\" — default exposure still too aggressive"
+        fi
+
+        # P-77.6: processing.pgtm_pre_tonemap_exposure_boost_ev must be 0.4 (was 0.8 — -50%, half the pre-tonemap boost)
+        local p77_pgtm=$(python3 -c "import json; print(json.load(open('$json_cfg_p77'))['processing']['pgtm_pre_tonemap_exposure_boost_ev'])" 2>/dev/null)
+        if [[ "$p77_pgtm" == "0.4" ]]; then
+            ok "P-77.6: pgtm_pre_tonemap_exposure_boost_ev=0.4 confirmed (was 0.8 — -50% pre-tonemap boost, total exposure lift now +0.9 EV instead of +1.68 EV = -46% noise amplification)"
+            ((++p77_count))
+        else
+            warn "P-77.6: expected pgtm_pre_tonemap_exposure_boost_ev=0.4, got \"$p77_pgtm\" — pre-tonemap boost still amplifying noise"
+        fi
+    else
+        warn "P-77: leica_perfect.json not found at $json_cfg_p77"
+    fi
+
+    ok "P-77: REAL night denoise applied (v6.4.9) — sub-patches: $p77_count/6"
+    if [[ "$p77_count" -ge 5 ]]; then
+        ((++patch_count))
+    else
+        ((++patch_fail))
+    fi
+    echo ""
+
     # ───────────────────────────────────────────────────────────────────────
     # SUMÁRIO
     # ───────────────────────────────────────────────────────────────────────
@@ -5598,7 +5680,7 @@ GRADLE_KT_P74
     echo ""
 
     if [[ "$patch_count" -ge 48 ]]; then
-        ok "77 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-76 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up)"
+        ok "78 surgical sed patches applied (P-1..P-51 + P-52a/b/c/d + P-53a/b/c + P-54a/b/c/d + P-55.1..5 + P-56.1..5 + P-57..P-61 + P-62..P-65 + P-67..P-77 added) — full pipeline + per-lens + runtime activation + UI + v6.3.4 runtime wiring + v6.3.5 NLM runtime radius + v6.3.6 creative profile color science + v6.3.7 video settings actually apply + v6.3.8 video encoder completeness + v6.4.0 drop RAW + 2 capture modes + LUT picker override + 5 best LUTs in mod menu + one-click JPEG max + v6.4.1 UI LUT picker runtime override + v6.4.5 RAW on-demand + v6.4.6 mode_fast removed + release APK + R8 + arm64-v8a only + v6.4.7 natural baseline (LUT none + latent bug fix) + v6.4.8 night precision (revert LUT leica_m9 + AgX softer + NR luma up) + v6.4.9 REAL night denoise (chroma NR 0.7→0.94 + detail_preserve 0.96→0.85 + exposure reduction)"
     else
         warn "Esperado 48+ patches, aplicados $patch_count — verifique warnings acima"
     fi
@@ -5611,11 +5693,12 @@ GRADLE_KT_P74
     # Footer
     cat <<'FOOTER'
 ═══════════════════════════════════════════════════════════════
-  v6.4.8 — 77 surgical sed patches (P-76 added): night precision — revert P-75 LUT leica_m9 (flat+noisy fix) + AgX shadow_lift 0.10→0.05 + pgtm boost 1.3→0.8 + NR luma 0.92→0.96
+  v6.4.9 — 78 surgical sed patches (P-77 added): REAL night denoise — chroma NR 0.7→0.94 (VLM flagged chroma as dominant offender in night photos with people) + luma 0.96→0.98 + detail_preserve 0.96→0.85 + shadow_lift 0.05→0.02 + default_exposure 0.88→0.5 + pgtm boost 0.8→0.4 (total exposure lift +1.68 EV → +0.9 EV, -46% noise amplification)
   Cron 14: P-72 RAW on-demand (force_no_raw/dng flipped false) — RAW available via gear toggle
   Cron 15: P-73 mode_fast removed (user: "não esquenta, mode_fast só atrapalha") + P-74 Release APK + R8 + arm64-v8a filter
   Cron 16: P-75 natural baseline — LUT "none" no perfil leica_perfect_signature + fix latent force_baseline_lut_id (era "Leica_M9_STD")
   Cron 17: P-76 night precision — revert LUT leica_m9 (flat+noisy) + AgX less aggressive (shadow_lift 0.05 + pgtm boost 0.8) + NR luma 0.96
+  Cron 18: P-77 REAL night denoise — chroma NR 0.7→0.94 (VLM flagged chroma as dominant offender) + detail_preserve 0.96→0.85 + shadow_lift 0.05→0.02 + default_exposure 0.88→0.5 + pgtm boost 0.8→0.4 (total exposure lift +1.68 EV → +0.9 EV)
   Leica Perfect — DEFINITIVE QUALITY (MAX BITS/LUT + Beat-GCam + 26 Creative Profiles + JPEG one-click + RAW on-demand + Leica M9 baseline + LUT on-demand + night precision)
 ═══════════════════════════════════════════════════════════════
 FOOTER

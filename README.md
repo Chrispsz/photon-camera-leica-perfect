@@ -1,24 +1,26 @@
-# Photon Camera — Leica Perfect v6.4.8
+# Photon Camera — Leica Perfect v6.4.9
 
 Fork of [Photon Camera](https://github.com/bjzhou/PhotonCamera) (upstream tag `1.26.1`)
-with **77 surgical patches** (Cron 17: night precision — Leica M9 LUT de volta + AgX softer + NR up),
+with **78 surgical patches** (Cron 18: REAL night denoise — chroma NR + exposure reduction),
 optimized for the **Xiaomi 15T** (dizi — OV50E + S5KJN1 + S5K3J1 + OV32B).
 
 **Single capture mode: `mode_max`** — max quality (15/9/7/11 frames, super-res 2.0x,
 NLM radius 7, JPEG/HEIC/UltraHDR Q100). **JPEG by default; RAW available on-demand**
 via gear icon → RAW toggle (v6.4.5: `force_no_raw=false`).
 
-**v6.4.8: Night precision** — revert P-75 LUT `leica_m9` de volta (flat+noisy fix).
-Diagnosed via EXIF comparison (Stock ISO 1000 1/30s clean vs Photon ISO 1506 1/59s flat+noisy,
-mesma sala 5 min de diferença) + VLM analysis. 3 root causes:
-1. P-75 (v6.4.7) `lut_id="none"` removeu color science Leica M9 (cor + contraste + mascaramento de ruído)
-2. AgX `pgtm_pre_tonemap_exposure_boost_ev=1.3` + `shadow_lift=0.10` → +2.3EV lift amplificou ruído ISO 1500-3000 ~5x
-3. `noise_reduction.luminance=0.92` insuficiente pra ISO alto do mode_max
+**v6.4.9: REAL night denoise** — fix P-76 incomplete (chroma NR missed).
+User feedback: "Muito ruído ainda, principalmente nas pessoas".
+VLM analysis of 2 night photos (ISO 2127 + ISO 1281) flagged:
+1. **"Chroma Noise is the dominant offender"** — red/green/blue specks on walls + faces
+2. **"Aggressive Luminance lifting without sufficient NR"** — +1.68 EV total boost amplified noise ~5x
+3. **"Smeared AND Noisy" on people** — worst of both worlds
 
-Fix P-76 (5 sub-patches): `lut_id="leica_m9"` + `force_baseline_lut_id="leica_m9"` (case-sensitive correct ID,
-bug latente do v6.4.6 era STAYS FIXED) + `shadow_lift 0.10→0.05` + `pgtm_pre_tonemap_exposure_boost_ev 1.3→0.8`
-+ `noise_reduction.luminance 0.92→0.96`.
+Fix P-77 (6 sub-patches): `chrominance 0.7→0.94` (the BIG fix P-76 missed) + `luminance 0.96→0.98`
++ `detail_preserve 0.96→0.85` (stop preserving noise as detail) + `shadow_lift 0.05→0.02`
++ `default_exposure_ev 0.88→0.5` + `pgtm_pre_tonemap_exposure_boost_ev 0.8→0.4`
+(total exposure lift +1.68 EV → +0.9 EV, **-46% noise amplification**).
 
+**v6.4.8: Night precision** (previous) — revert P-75 LUT `leica_m9` de volta (flat+noisy fix).
 **v6.4.7-fix2: DEBUG build** — release build (v6.4.6) had "parse error" on Xiaomi 15T.
 Reverted to debug build (guaranteed installable, same as v6.4.1-v6.4.5). APK ~138 MB.
 
@@ -29,13 +31,13 @@ Reverted to debug build (guaranteed installable, same as v6.4.1-v6.4.5). APK ~13
 Direct download from the latest GitHub Release:
 
 ```
-https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.8-debug.apk
+https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.4.9-debug.apk
 ```
 
 Install on device (enable *Install unknown apps* for your browser / file manager):
 
 ```bash
-adb install -r LeicaPerfect-v6.4.8-debug.apk
+adb install -r LeicaPerfect-v6.4.9-debug.apk
 ```
 
 Package: `com.hinnka.mycamera.debug`
@@ -51,10 +53,10 @@ with Gradle:
 | Step | What happens |
 |---|---|
 | `clone` | `git clone https://github.com/bjzhou/PhotonCamera.git` @ tag `1.26.1` |
-| `patch` | 77 surgical `sed` patches (tiers P-1 … P-76) over the upstream Kotlin/C++ source |
+| `patch` | 78 surgical `sed` patches (tiers P-1 … P-77) over the upstream Kotlin/C++ source |
 | `build` | `./gradlew assembleDefaultDebug` (single flavor — DEBUG build, guaranteed installable) |
 
-Output: `apk/LeicaPerfect-v6.4.8-debug.apk` (~138 MB — debug build, same as v6.4.1-v6.4.5).
+Output: `apk/LeicaPerfect-v6.4.9-debug.apk` (~138 MB — debug build, same as v6.4.1-v6.4.8).
 
 ### Build locally (Arch Linux / CachyOS)
 
@@ -101,9 +103,30 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
 
 ---
 
-## What's in v6.4.8 (vs upstream)
+## What's in v6.4.9 (vs upstream)
 
-- **Cron 17: Night precision** — 77 patches / 180+ substeps, all verified
+- **Cron 18: REAL night denoise** — 78 patches / 185+ substeps, all verified
+- **P-77 REAL night denoise (6 sub-patches)** — fixes P-76 incomplete (chroma NR missed):
+  - **User feedback**: "Muito ruído ainda, principalmente nas pessoas"
+  - **VLM analysis of 2 night photos** (ISO 2127 + ISO 1281, Xiaomi 15T):
+    - "Chroma Noise is the dominant offender" — red/green/blue specks on walls + faces
+    - "Aggressive Luminance lifting without sufficient NR" — +1.68 EV total boost amplified noise ~5x
+    - "Smeared AND Noisy" on people — worst of both worlds
+  - **Root cause**: P-76 (v6.4.8) boosted `luminance` 0.92→0.96 but **completely missed**
+    `chrominance` (still 0.7 = weak default) and `detail_preserve` (still 0.96 = preserves noise as detail)
+  - **P-77.1: `noise_reduction.chrominance 0.7→0.94`** — +34% chroma NR. **THE BIG FIX** —
+    kills red/green/blue specks VLM flagged as dominant offender.
+  - **P-77.2: `noise_reduction.luminance 0.96→0.98`** — +2% more luma NR for ISO 1281-2127 night noise.
+  - **P-77.3: `noise_reduction.detail_preserve 0.96→0.85`** — -11%. Allows NR to actually smooth noise
+    instead of preserving it as fake detail. Fixes the "smeared AND noisy" paradox.
+  - **P-77.4: `tone_mapping.shadow_lift 0.05→0.02`** — -60%. Shadows stay dark = less noise visible
+    in dark areas VLM flagged.
+  - **P-77.5: `processing.default_exposure_ev 0.88→0.5`** — -43%. Less aggressive default exposure
+    lift = less noise amplification.
+  - **P-77.6: `processing.pgtm_pre_tonemap_exposure_boost_ev 0.8→0.4`** — -50%. Total exposure lift
+    now +0.9 EV instead of +1.68 EV = **-46% noise amplification**.
+
+- **Cron 17: Night precision (v6.4.8 — P-76, incomplete — P-77 finishes the job)** — 77 patches
 - **P-76 night precision (5 sub-patches)**:
   - **P-76.1: revert LUT `leica_m9`** — P-75 (v6.4.7) set `lut_id="none"` which removed
     Leica M9 CCD color science (rich colors + contrast + noise masking). Night photos at
@@ -112,12 +135,14 @@ Every push to `main` builds the APK and updates a **rolling Release** tagged
     from v6.4.6 era (`"Leica_M9_STD"` filename that never resolved in `LutManager.getLutInfo`)
     STAYS FIXED with the correct ID `"leica_m9"`.
   - **P-76.3: AgX `shadow_lift 0.10→0.05`** — -50% shadow lift. Less sensor noise reveal in shadows.
+    (P-77.4 lowered further to 0.02.)
   - **P-76.4: `pgtm_pre_tonemap_exposure_boost_ev 1.3→0.8`** — -38% pre-tonemap boost. ISO 1500-3000
     noise no longer amplified ~5x by AgX lift.
-  - **P-76.5: `noise_reduction.luminance 0.92→0.96`** — +4% luma NR. Compensates mode_max night ISO
-    without plasticizing (`detail_preserve 0.96` retained).
-  - **Diagnosis**: EXIF comparison (Stock ISO 1000 1/30s clean vs Photon ISO 1506 1/59s flat+noisy,
-    same room 5 min apart) + VLM analysis (Photon underexposed/flat/noisy, Stock bright/vivid/clean).
+    (P-77.6 lowered further to 0.4.)
+  - **P-76.5: `noise_reduction.luminance 0.92→0.96`** — +4% luma NR.
+    (P-77.2 raised further to 0.98.)
+  - **⚠️ P-76 incomplete** — missed `chrominance` (still 0.7) + `detail_preserve` (still 0.96).
+    P-77 (v6.4.9) fixes this.
 - **Cron 16: Natural baseline (v6.4.7 — P-75, REVERTED by P-76.1)** — historical
   - P-75 set `lut_id="none"` for "natural" look → flat+noisy at night → reverted in v6.4.8.
   - P-75 latent bug fix retained (now with correct case-sensitive ID `"leica_m9"` in v6.4.8).
