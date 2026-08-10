@@ -700,42 +700,45 @@ def apply_u03(src_dir, errors, applied_count):
             print("  ✓ U-03 §A+B: ShadowsHighlightsShader.kt guided filter + bind method")
 
     # ── Section C: 3 consumers ──
-    # C.1: LutRenderer.kt
+    # C.1: LutRenderer.kt — insert AFTER the closing ) of bindUniformLocations call
     if os.path.exists(lr):
         src = read_file(lr)
         if "ShadowsHighlightsShader.bindGuidedFilterUniforms" not in src:
-            old = "                shadows = params.shadows\n"
-            new = old + "            ShadowsHighlightsShader.bindGuidedFilterUniforms(locations.programId)  // U-03\n"
-            # Only apply if this exact pattern exists (no trailing comma variant)
-            if old in src and "shadows = params.shadows," not in src.split(old)[0].split("\n")[-1]:
-                src = src.replace(old, new, 1)
-                write_file(lr, src)
-                applied_count[0] += 1
-                print("  ✓ U-03 §C.1: LutRenderer.kt guided filter bind")
-            else:
-                # Try with trailing comma
-                old2 = "                shadows = params.shadows,\n"
-                new2 = old2 + "            ShadowsHighlightsShader.bindGuidedFilterUniforms(locations.programId)  // U-03\n"
-                if old2 in src:
-                    src = src.replace(old2, new2, 1)
+            marker = "shadows = params.shadows"
+            idx = src.find(marker)
+            if idx >= 0:
+                # Find the closing ) of the bindUniformLocations() call
+                close_paren = src.find('            )', idx)
+                if close_paren >= 0:
+                    insert_pos = close_paren + len('            )')
+                    insertion = "\n            ShadowsHighlightsShader.bindGuidedFilterUniforms(locations.programId)  // U-03"
+                    src = src[:insert_pos] + insertion + src[insert_pos:]
                     write_file(lr, src)
                     applied_count[0] += 1
-                    print("  ✓ U-03 §C.1: LutRenderer.kt guided filter bind (comma variant)")
+                    print("  ✓ U-03 §C.1: LutRenderer.kt guided filter bind")
                 else:
-                    errors.append("  U-03 C.1: LutRenderer shadows = params.shadows anchor not found")
+                    errors.append("  U-03 C.1: closing ) after shadows = params.shadows not found")
+            else:
+                errors.append("  U-03 C.1: LutRenderer shadows = params.shadows anchor not found")
 
-    # C.2: RawDemosaicProcessor.kt
+    # C.2: RawDemosaicProcessor.kt — insert AFTER the closing ) of bindUniformLocations call
     if os.path.exists(rdp):
         src = read_file(rdp)
         if "ShadowsHighlightsShader.bindGuidedFilterUniforms" not in src:
-            # Try 12-space indent without comma
-            old = "            shadows = params.shadows\n"
-            new = old + "        ShadowsHighlightsShader.bindGuidedFilterUniforms(program)  // U-03\n"
-            if old in src:
-                src = src.replace(old, new, 1)
-                write_file(rdp, src)
-                applied_count[0] += 1
-                print("  ✓ U-03 §C.2: RawDemosaicProcessor.kt guided filter bind")
+            marker = "shadows = params.shadows"
+            idx = src.find(marker)
+            if idx >= 0:
+                # Find the closing ) of the bindUniformLocations() call
+                close_paren = src.find('        )', idx)
+                if close_paren >= 0:
+                    insert_pos = close_paren + len('        )')
+                    insertion = "\n        ShadowsHighlightsShader.bindGuidedFilterUniforms(program)  // U-03"
+                    src = src[:insert_pos] + insertion + src[insert_pos:]
+                    write_file(rdp, src)
+                    applied_count[0] += 1
+                    print("  ✓ U-03 §C.2: RawDemosaicProcessor.kt guided filter bind")
+                else:
+                    errors.append("  U-03 C.2: closing ) after shadows = params.shadows not found")
             else:
                 errors.append("  U-03 C.2: RawDemosaicProcessor shadows = params.shadows anchor not found")
 
