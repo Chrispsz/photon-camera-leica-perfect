@@ -1199,12 +1199,14 @@ object AeHistogramProtector {
                 "    )\n"
                 "\n"
             )
-            old = "    /** dcp — forçar Leica M8"
+            # v6.5.1: anchor changed from "/** dcp — forçar Leica M8" (comment, fragile)
+            # to "data class DcpConfig(" (stable structural anchor, survives comment edits)
+            old = "    data class DcpConfig("
             if old in src:
                 src = src.replace(old, dc + old, 1)
                 changed = True
             else:
-                errors.append("  U-06 A.1: dcp comment anchor not found")
+                errors.append("  U-06 A.1: 'data class DcpConfig(' anchor not found")
 
         # A.2: Add aeProtection field to LeicaPerfectConfig
         if '@SerializedName("ae_protection")' not in src:
