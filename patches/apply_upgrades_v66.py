@@ -354,18 +354,21 @@ def p81_quadbay_remosaic(source_dir):
         applied("P-81.2: quadBayerRemosaicForced accessor already present")
         count += 1
     else:
-        marker = 'val mtkRawBpp: Int? = '
+        # Use the @SerializedName field declaration as marker (more specific than accessor)
+        marker = '@SerializedName("mtk_raw_bpp")'
         idx = text.find(marker)
         matched = False
         if idx >= 0:
             eol = text.find('\n', idx)
             if eol >= 0:
-                close_idx = text.find('\n    )', eol)
-                if close_idx >= 0:
+                # The line with mtk_raw_bpp ends at eol. Insert new field right after it.
+                mtk_line = text[idx:eol]
+                if mtk_line.rstrip().endswith(','):
+                    new_field = '\n        @SerializedName("force_quad_bayer_remosaic") val forceQuadBayerRemosaic: Boolean? = false'
+                else:
                     new_field = ',\n        @SerializedName("force_quad_bayer_remosaic") val forceQuadBayerRemosaic: Boolean? = false'
-                    prev_eol = text.rfind('\n', idx, close_idx)
-                    text = text[:prev_eol] + ',' + text[prev_eol:close_idx] + new_field + text[close_idx:]
-                    matched = True
+                text = text[:eol] + new_field + text[eol:]
+                matched = True
         if matched:
             acc_marker = "val lensChromaticAberration:"
             acc_idx = text.find(acc_marker)
@@ -642,17 +645,33 @@ class ZslBufferManager(
         applied("P-84.2: ZSL accessors already present")
         count += 1
     else:
-        marker = 'val thermalThrottleAtC:'
+        # Use force_long_exposure (added by P-83.1) as marker — it's the last field before close paren
+        marker = '@SerializedName("force_long_exposure")'
         idx = text.find(marker)
         matched = False
         if idx >= 0:
             eol = text.find('\n', idx)
             if eol >= 0:
-                close_idx = text.find('\n    )', eol)
-                if close_idx >= 0:
+                fle_line = text[idx:eol]
+                if fle_line.rstrip().endswith(','):
+                    new_fields = '\n        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,\n        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5'
+                else:
                     new_fields = ',\n        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,\n        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5'
-                    prev_eol = text.rfind('\n', idx, close_idx)
-                    text = text[:prev_eol] + ',' + text[prev_eol:close_idx] + new_fields + text[close_idx:]
+                text = text[:eol] + new_fields + text[eol:]
+                matched = True
+        else:
+            # Fallback: use thermal_throttle_at_c (pre-P-83.1 state)
+            marker = '@SerializedName("thermal_throttle_at_c")'
+            idx = text.find(marker)
+            if idx >= 0:
+                eol = text.find('\n', idx)
+                if eol >= 0:
+                    thermal_line = text[idx:eol]
+                    if thermal_line.rstrip().endswith(','):
+                        new_fields = '\n        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,\n        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5'
+                    else:
+                        new_fields = ',\n        @SerializedName("zsl_buffer_enabled") val zslBufferEnabled: Boolean? = false,\n        @SerializedName("zsl_buffer_size") val zslBufferSize: Int? = 5'
+                    text = text[:eol] + new_fields + text[eol:]
                     matched = True
         if matched:
             acc_marker = "val nightModeLongExposureMaxNs:"
