@@ -116,8 +116,9 @@
     "hncs_film_curve_gain": 1.1
   },
   "awb_clamp": {
+    "_comment_v652": "v6.5.2 CRITICAL FIX: awb_clamp DISABLED (was true). U-05 set CONTROL_AWB_MODE=OFF + COLOR_CORRECTION_MODE=TRANSFORM_MATRIX with manually-computed gains (kelvinToRggbGains — generic formula, NOT tuned for OV50E) + transform (buildColorMatrixWhiteBalanceTransform from SENSOR_COLOR_TRANSFORM1/2 — may be wrong/missing on MediaTek Dimensity 8300-Ultra). This bypassed ALL OEM HAL color tuning (green imbalance correction for QuadBayer, LSC, vendor CCM) → universal green cast in PREVIEW + capture. Stock camera uses CONTROL_AWB_MODE=AUTO (HAL does everything). Now we do the same. U-05 code stays in place (gate condition fails when enabled=false) for future debugging.",
     "_comment_v65": "v6.5 U-05: AWB CCT clamping importado do M9 CCD. Estabiliza WB no modo padrão.",
-    "enabled": true,
+    "enabled": false,
     "min_cct": 3500,
     "max_cct": 7000,
     "smoothing_alpha": 0.15,

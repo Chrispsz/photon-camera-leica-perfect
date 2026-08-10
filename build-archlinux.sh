@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.5.1 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.5.2 PhotonCamera Fork Build Script
+# v6.5.2 (Round 06 fix): ROOT CAUSE FIX for green cast IN PREVIEW:
+#   - awb_clamp.enabled: true → false (U-05 was setting CONTROL_AWB_MODE=OFF +
+#     COLOR_CORRECTION_MODE=TRANSFORM_MATRIX with manual gains from generic
+#     kelvinToRggbGains formula NOT tuned for OV50E QuadBayer + transform from
+#     SENSOR_COLOR_TRANSFORM1/2 which may be wrong/missing on MediaTek)
+#   - This bypassed ALL OEM HAL color tuning (green imbalance correction, LSC,
+#     vendor CCM) → universal green cast visible in PREVIEW before capture
+#   - Stock camera uses CONTROL_AWB_MODE=AUTO (HAL does everything) → now we do same
+#   - U-05 code stays in place (gate fails when enabled=false) for future debugging
 # v6.5.1 (Round 06): ROOT CAUSE FIX for universal green cast + noise:
 #   - DCP CCD Leica M8 REMOVIDO (force_dcp_id=null) — CCM nativa do sensor OV50E CMOS QuadBayer
 #   - LUT CCD Leica M9 REMOVIDO (force_baseline_lut_id=null) — AgX tone mapping nativo
@@ -91,7 +100,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.5.1"
+readonly FORK_VERSION="6.5.2"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
