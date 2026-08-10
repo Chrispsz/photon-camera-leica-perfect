@@ -210,10 +210,14 @@ object LeicaConfig {
         @SerializedName("hncs_film_curve_gain") val hncsFilmCurveGain: Double? = 1.1,
     )
 
-    /** dcp — forçar Leica M8 + LUT + frame. */
+    /** dcp — v6.5.1: force_dcp_id/force_baseline_lut_id DEFAULT NULL (was CCD Leica M8/M9).
+     *  ROOT CAUSE FIX: CCD DCP mismatched com OV50E CMOS QuadBayer → green cast universal.
+     *  AGORA: null faz takeIf { isNotBlank() } retornar null → código usa DCP/LUT nativo do sensor.
+     *  Leica look preservado via tone_mapping.film_like_curve + color.vibrance + warmth.
+     */
     data class DcpConfig(
-        @SerializedName("force_dcp_id") val forceDcpId: String? = "builtin_dcp_Leica M8 Camera Standard",
-        @SerializedName("force_baseline_lut_id") val forceBaselineLutId: String? = "Leica_M9_STD",
+        @SerializedName("force_dcp_id") val forceDcpId: String? = null,
+        @SerializedName("force_baseline_lut_id") val forceBaselineLutId: String? = null,
         @SerializedName("dcp_ratio_warm") val dcpRatioWarm: Float? = 0.52f,
         @SerializedName("dcp_ratio_cool") val dcpRatioCool: Float? = 1.62f,
         @SerializedName("force_heic_export") val forceHeicExport: Boolean? = true,
@@ -671,10 +675,13 @@ object LeicaConfig {
      * forcedDcpId — ID do DCP forçado.
      * v6.2: quando creative profile != baseline (leica_authentic), retorna activeDcpId do perfil ativo.
      * Caso contrário usa o valor global do JSON.
+     * v6.5.1: fallback default "" (was "builtin_dcp_Leica M8 Camera Standard").
+     *   String vazia → consumers usam `takeIf { isNotBlank() }` → null → código natural (DCP nativo do sensor).
+     *   FIX: CCD DCP removido para eliminar green cast em CMOS QuadBayer OV50E.
      */
     val forcedDcpId: String
         get() = if (!isActiveProfileBaseline) activeDcpId
-        else currentConfig?.dcp?.forceDcpId ?: "builtin_dcp_Leica M8 Camera Standard"
+        else currentConfig?.dcp?.forceDcpId ?: ""
 
     /**
      * runtimeLutOverride — LUT ID override set at runtime pelo mod menu (P-64).
@@ -690,11 +697,14 @@ object LeicaConfig {
      * v6.4.0: runtimeLutOverride (setado pelo mod menu) takes precedence over everything.
      *         Fixes "stuck on m9 CCD" bug — quando usuario escolhe outro LUT no menu,
      *         o override era ignorado. Agora é respeitado.
+     * v6.5.1: fallback default "" (was "Leica_M9_STD").
+     *   String vazia → consumers usam `takeIf { isNotBlank() }` → null → AgX tone mapping nativo.
+     *   FIX: CCD LUT removido para parar de amplificar chroma noise em CMOS.
      */
     val forcedBaselineLutId: String
         get() = runtimeLutOverride
             ?: if (!isActiveProfileBaseline) activeLutId
-            else currentConfig?.dcp?.forceBaselineLutId ?: "Leica_M9_STD"
+            else currentConfig?.dcp?.forceBaselineLutId ?: ""
 
     /**
      * forcedFrameId — ID do frame (moldura) forçado.

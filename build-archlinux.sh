@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.4.0 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.5.1 PhotonCamera Fork Build Script
+# v6.5.1 (Round 06): ROOT CAUSE FIX for universal green cast + noise:
+#   - DCP CCD Leica M8 REMOVIDO (force_dcp_id=null) — CCM nativa do sensor OV50E CMOS QuadBayer
+#   - LUT CCD Leica M9 REMOVIDO (force_baseline_lut_id=null) — AgX tone mapping nativo
+#   - force_rawmax mode_max false→true (effectiveForceRawmax era false → YUV ao invés de RAW → sem multi-frame stacking!)
+#   - chrominance NR 0.96→0.985 (near-max chroma NR para residual CMOS noise)
+#   - Safety-net green compensation: tint_shift -12→-22, sat_green -10→-16, per_channel_tint_green 0→-10
+#   - per_lens tint_shift/saturation_green/chroma_nr_multiplier todos ajustados (main/uw/tele/front)
+# v6.5.0 (Round 05): U-01..U-06 VLM-driven pipeline fixes (denoise shadows, adaptive sharpening, guided filter, detail preserve, AWB clamp, AE histogram)
 # v6.4.0 (Cron 7): P-62 drop RAW + 2 capture modes (mode_max + mode_fast intelligent trigger)
 # v6.4.0 (Cron 8): P-63 LUT picker override (fixes stuck-on-m9-ccd) + P-64 5 best LUTs in mod menu
 # v6.4.0 (Cron 9): P-65 one-click JPEG max optimization (forceNoRaw + ONE-CLICK MAX button)
@@ -83,7 +91,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.5.0"
+readonly FORK_VERSION="6.5.1"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
