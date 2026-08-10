@@ -1,6 +1,33 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.5.2 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.5.3 PhotonCamera Fork Build Script
+# v6.5.3 (Round 08 polish): TUNING para polir Photon ao nível Leica Authentic:
+#   - color.warmth 1.02→1.05 (+3%, Photon estava fria vs Authentic)
+#   - color.vibrance 1.04→1.06 (+2%, sutil pop sem virar Vibrante)
+#   - color_science.tint_shift -22→-28 (+6 magenta, mata residual ciano/verde sombras)
+#   - color_science.saturation_green_pct -16→-8 (verde volta à vida — camiseta/foliage)
+#   - color_science.saturation_blue_pct -7→-2 (azul céu/mar profundo)
+#   - color_science.saturation_red_pct -5→0 (pele natural)
+#   - color_science.per_channel_tint_green -10→-14 (mais anti-green)
+#   - color_science.highlight_compression_ev -0.15→-0.25 (mais proteção highlights)
+#   - tone_mapping.contrast 1.1→1.05 (curva suave cinema, Photon era duro/digital)
+#   - tone_mapping.highlight_rolloff 0.3→0.22 (-27%, preserva nuvens sem blow-out)
+#   - tone_mapping.shadow_lift 0.03→0.05 (+66%, levanta crushed blacks palmeiras)
+#   - sharpening.amount 0.054→0.040 (-26%, mata halos brancos)
+#   - sharpening.threshold 0.005→0.012 (+140%, sharpening agora só em bordas reais)
+#   - sharpening.edge_mask_strength 3.5→4.5 (+29%, gating mais forte)
+#   - sharpening.radius 0.7→0.6 (halos menores)
+#   - noise_reduction.chrominance 0.985→0.96 (-2.5%, mata oil-painting areia/nuvens)
+#   - noise_reduction.detail_preserve 0.75→0.85 (+13%, preserva textura)
+#   - noise_reduction.luminance 0.98→0.985 (+0.5%, ligeiro NR céu)
+#   - ae_protection.highlight_clip_threshold_pct 1.0→0.5 (AE trigga 2x cedo — salva nuvens)
+#   - ae_protection.shadow_floor_rgb 5→8 (garante detalhe em sombras profundas)
+#   - advanced.mertens_contrast_weight 1.5→1.2 (-20%, HDR fusion menos agressivo)
+#   - per_lens.main: 7 params ajustados (gamma_contrast, gamma_shadow_lift, sharpening_multiplier,
+#     chroma_nr_multiplier, tint_shift, saturation_green, saturation_blue)
+#   - Total: 24 parâmetros em 8 seções (config-only, sem mudança de código — zero risco de build)
+#   - Preservado: dcp.force_dcp_id=null, awb_clamp.enabled=false, multi_frame.force_rawmax=true
+#     (todos fixes v6.5.1+v6.5.2 mantidos intactos)
 # v6.5.2 (Round 06 fix): ROOT CAUSE FIX for green cast IN PREVIEW:
 #   - awb_clamp.enabled: true → false (U-05 was setting CONTROL_AWB_MODE=OFF +
 #     COLOR_CORRECTION_MODE=TRANSFORM_MATRIX with manual gains from generic
@@ -100,7 +127,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.5.2"
+readonly FORK_VERSION="6.5.3"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
