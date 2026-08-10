@@ -853,6 +853,23 @@ def apply_u05(src_dir, errors, applied_count):
             else:
                 errors.append("  U-05 §2: MATRIX, UNAVAILABLE anchor not found")
 
+        # 2b. Add CLAMPED_AUTO branch to exhaustive 'when' expressions
+        # Fix 1: createManualWhiteBalanceAnchor when (returns null for CLAMPED_AUTO, same as UNAVAILABLE)
+        if "WhiteBalanceControlPath.UNAVAILABLE -> null" in src and "CLAMPED_AUTO -> null" not in src:
+            old = "            WhiteBalanceControlPath.UNAVAILABLE -> null"
+            new = "            WhiteBalanceControlPath.UNAVAILABLE -> null\n            WhiteBalanceControlPath.CLAMPED_AUTO -> null  // U-05: never reached (gate handles it)"
+            if old in src:
+                src = src.replace(old, new, 1)
+                changed = True
+
+        # Fix 2: applyWhiteBalanceSettings when (routes CLAMPED_AUTO to AUTO, same as UNAVAILABLE)
+        if "WhiteBalanceControlPath.UNAVAILABLE -> applyAutoWhiteBalanceSettings(" in src and "CLAMPED_AUTO -> applyAutoWhiteBalanceSettings" not in src:
+            old = "            WhiteBalanceControlPath.UNAVAILABLE -> applyAutoWhiteBalanceSettings("
+            new = "            WhiteBalanceControlPath.CLAMPED_AUTO -> applyAutoWhiteBalanceSettings(\n                builder = builder,\n                state = state.copy(awbMode = CameraMetadata.CONTROL_AWB_MODE_AUTO),\n                isCapture = isCapture\n            )\n            WhiteBalanceControlPath.UNAVAILABLE -> applyAutoWhiteBalanceSettings("
+            if old in src:
+                src = src.replace(old, new, 1)
+                changed = True
+
         # 3. Add clampedAwbSmoothedKelvin state field
         if "clampedAwbSmoothedKelvin" not in src:
             old = "    private var manualWhiteBalanceAnchor: ManualWhiteBalanceAnchor? = null"
@@ -1259,7 +1276,7 @@ object AeHistogramProtector {
                 "            val upperBound = minOf(range.upper, maxSteps)\n"
                 "            val stats = AeHistogramProtector.compute(state)\n"
                 "            val defaultEvBiasSteps = AeHistogramProtector.evToSteps(LeicaConfig.defaultExposureEv, evStep)\n"
-                "            val perLensEvCompSteps = AeHistogramProtector.evToSteps(LeicaConfig.effectiveEvCompForLens(LeicaConfig.lensKeyFromCameraId(currentCameraId), stats.clipLowFraction), evStep)\n"
+                "            val perLensEvCompSteps = AeHistogramProtector.evToSteps(LeicaConfig.effectiveEvCompForLens(LeicaConfig.lensKeyFromCameraId(state.currentCameraId), stats.clipLowFraction), evStep)\n"
                 "            val effectiveComp = (state.exposureCompensation + defaultEvBiasSteps + perLensEvCompSteps + stats.histogramEvCorrection).coerceIn(lowerBound, upperBound)\n"
                 "            builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, effectiveComp)\n"
                 "            PLog.d(TAG, \"U-06 AE: user=\" + state.exposureCompensation + \" defaultEv=\" + defaultEvBiasSteps + \" perLens=\" + perLensEvCompSteps + \" hist=\" + stats.histogramEvCorrection + \" clipHi=\" + stats.clipHighFraction + \" clipLo=\" + stats.clipLowFraction + \" avgLuma=\" + stats.avgLuma + \" effective=\" + effectiveComp)"
@@ -1290,7 +1307,7 @@ object AeHistogramProtector {
                 "        val bracketSteps = roundHdrBracketCompensationSteps(evOffset, evStep)\n"
                 "        // U-06: histogram feedback (highlight/shadow protection)\n"
                 "        val stats = AeHistogramProtector.compute(state)\n"
-                "        val perLensEvCompSteps = AeHistogramProtector.evToSteps(LeicaConfig.effectiveEvCompForLens(LeicaConfig.lensKeyFromCameraId(currentCameraId), stats.clipLowFraction), evStep)\n"
+                "        val perLensEvCompSteps = AeHistogramProtector.evToSteps(LeicaConfig.effectiveEvCompForLens(LeicaConfig.lensKeyFromCameraId(state.currentCameraId), stats.clipLowFraction), evStep)\n"
                 "        return (state.exposureCompensation + bracketSteps + perLensEvCompSteps + stats.histogramEvCorrection).coerceIn(lowerBound, upperBound)\n"
                 "    }"
             )
