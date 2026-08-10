@@ -547,15 +547,21 @@ def apply_u01(src_dir, errors, applied_count):
             else:
                 errors.append("  U-01 K.1: NoiseReductionConfig detail_preserve+adaptive anchor not found")
 
-        # K.2: Add accessor noiseReductionShadowBandBoost
+        # K.2: Add accessor noiseReductionShadowBandBoost after noiseReductionAdaptive
+        # Use robust matching: find 'val noiseReductionAdaptive:' and insert after its line
         if "val noiseReductionShadowBandBoost" not in src:
-            old = "val noiseReductionAdaptive: Boolean get() = currentConfig?.noiseReduction?.adaptive ?: true"
-            new = old + "\n    val noiseReductionShadowBandBoost: Double get() = currentConfig?.noiseReduction?.shadowBandBoost ?: 0.5  // U-01"
-            if old in src:
-                src = src.replace(old, new, 1)
-                changed = True
+            marker = "val noiseReductionAdaptive:"
+            idx = src.find(marker)
+            if idx >= 0:
+                eol = src.find('\n', idx)
+                if eol >= 0:
+                    new_line = "\n    val noiseReductionShadowBandBoost: Double get() = currentConfig?.noiseReduction?.shadowBandBoost ?: 0.5  // U-01"
+                    src = src[:eol+1] + new_line + src[eol+1:]
+                    changed = True
+                else:
+                    errors.append("  U-01 K.2: noiseReductionAdaptive EOL not found")
             else:
-                errors.append("  U-01 K.2: noiseReductionAdaptive accessor anchor not found")
+                errors.append("  U-01 K.2: noiseReductionAdaptive marker not found")
 
         if changed:
             write_file(lcg, src)
@@ -733,17 +739,25 @@ def apply_u03(src_dir, errors, applied_count):
             else:
                 errors.append("  U-03 C.2: RawDemosaicProcessor shadows = params.shadows anchor not found")
 
-    # C.3: RealtimeVideoRenderer.kt
+    # C.3: RealtimeVideoRenderer.kt — insert AFTER the closing ) of bindUniformLocations call
     if os.path.exists(rvr):
         src = read_file(rvr)
         if "ShadowsHighlightsShader.bindGuidedFilterUniforms" not in src:
-            old = "            shadows = params.shadows,\n"
-            new = old + "        ShadowsHighlightsShader.bindGuidedFilterUniforms(locations.programId)  // U-03\n"
-            if old in src:
-                src = src.replace(old, new, 1)
-                write_file(rvr, src)
-                applied_count[0] += 1
-                print("  ✓ U-03 §C.3: RealtimeVideoRenderer.kt guided filter bind")
+            # Find 'shadows = params.shadows,' then find the NEXT closing ')' and insert after it
+            marker = "shadows = params.shadows,"
+            idx = src.find(marker)
+            if idx >= 0:
+                # Find the closing ) of the bindUniformLocations() call
+                close_paren = src.find('        )', idx)
+                if close_paren >= 0:
+                    insert_pos = close_paren + len('        )')
+                    insertion = "\n        ShadowsHighlightsShader.bindGuidedFilterUniforms(locations.programId)  // U-03"
+                    src = src[:insert_pos] + insertion + src[insert_pos:]
+                    write_file(rvr, src)
+                    applied_count[0] += 1
+                    print("  ✓ U-03 §C.3: RealtimeVideoRenderer.kt guided filter bind")
+                else:
+                    errors.append("  U-03 C.3: closing ) after shadows = params.shadows, not found")
             else:
                 errors.append("  U-03 C.3: RealtimeVideoRenderer shadows = params.shadows, anchor not found")
 
@@ -769,19 +783,25 @@ def apply_u03(src_dir, errors, applied_count):
                 errors.append("  U-03 D.1: film_like_curve field anchor not found")
 
         # D.2: Add 3 accessors after toneMappingFilmLikeCurve
+        # Use robust matching: find 'val toneMappingFilmLikeCurve:' and insert after its line
         if "val toneMappingGuidedFilterEnabled" not in src:
-            old = "val toneMappingFilmLikeCurve: Boolean get() = currentConfig?.toneMapping?.filmLikeCurve ?: true"
-            new = old + (
-                "\n\n    // U-03: guided filter (replaces bilateral — kills HDR halos)\n"
-                "    val toneMappingGuidedFilterEnabled: Boolean get() = currentConfig?.toneMapping?.guidedFilterEnabled ?: true\n"
-                "    val toneMappingGuidedFilterRadius: Double get() = currentConfig?.toneMapping?.guidedFilterRadius ?: 10.0\n"
-                "    val toneMappingGuidedFilterEps: Double get() = currentConfig?.toneMapping?.guidedFilterEps ?: 0.01"
-            )
-            if old in src:
-                src = src.replace(old, new, 1)
-                changed = True
+            marker = "val toneMappingFilmLikeCurve:"
+            idx = src.find(marker)
+            if idx >= 0:
+                eol = src.find('\n', idx)
+                if eol >= 0:
+                    new_lines = (
+                        "\n\n    // U-03: guided filter (replaces bilateral — kills HDR halos)\n"
+                        "    val toneMappingGuidedFilterEnabled: Boolean get() = currentConfig?.toneMapping?.guidedFilterEnabled ?: true\n"
+                        "    val toneMappingGuidedFilterRadius: Double get() = currentConfig?.toneMapping?.guidedFilterRadius ?: 10.0\n"
+                        "    val toneMappingGuidedFilterEps: Double get() = currentConfig?.toneMapping?.guidedFilterEps ?: 0.01"
+                    )
+                    src = src[:eol+1] + new_lines + src[eol+1:]
+                    changed = True
+                else:
+                    errors.append("  U-03 D.2: toneMappingFilmLikeCurve EOL not found")
             else:
-                errors.append("  U-03 D.2: toneMappingFilmLikeCurve accessor anchor not found")
+                errors.append("  U-03 D.2: toneMappingFilmLikeCurve marker not found")
 
         if changed:
             write_file(lcg, src)
@@ -999,20 +1019,27 @@ def apply_u05(src_dir, errors, applied_count):
                 errors.append("  U-05 §10: data class VideoConfig anchor not found")
 
         # 11. Add 4 accessors after perChannelTintBlue
+        # Use robust matching: find 'val perChannelTintBlue:' (the accessor, not the field) and insert after its line
         if "val awbClampEnabled" not in src:
-            old = "    val perChannelTintBlue: Int get() = currentConfig?.colorScience?.perChannelTintBlue ?: 0"
-            new = old + (
-                "\n\n    // U-05: AWB CCT clamping (M9-style stabilization for default AUTO mode)\n"
-                "    val awbClampEnabled: Boolean get() = currentConfig?.awbClamp?.enabled ?: true\n"
-                "    val awbClampMinCct: Int get() = currentConfig?.awbClamp?.minCct ?: 3500\n"
-                "    val awbClampMaxCct: Int get() = currentConfig?.awbClamp?.maxCct ?: 7000\n"
-                "    val awbClampSmoothingAlpha: Float get() = currentConfig?.awbClamp?.smoothingAlpha ?: 0.15f"
-            )
-            if old in src:
-                src = src.replace(old, new, 1)
-                changed = True
+            marker = "val perChannelTintBlue:"
+            # Find the LAST occurrence (the accessor, not the @SerializedName field declaration)
+            idx = src.rfind(marker)
+            if idx >= 0:
+                eol = src.find('\n', idx)
+                if eol >= 0:
+                    new_lines = (
+                        "\n\n    // U-05: AWB CCT clamping (M9-style stabilization for default AUTO mode)\n"
+                        "    val awbClampEnabled: Boolean get() = currentConfig?.awbClamp?.enabled ?: true\n"
+                        "    val awbClampMinCct: Int get() = currentConfig?.awbClamp?.minCct ?: 3500\n"
+                        "    val awbClampMaxCct: Int get() = currentConfig?.awbClamp?.maxCct ?: 7000\n"
+                        "    val awbClampSmoothingAlpha: Float get() = currentConfig?.awbClamp?.smoothingAlpha ?: 0.15f"
+                    )
+                    src = src[:eol+1] + new_lines + src[eol+1:]
+                    changed = True
+                else:
+                    errors.append("  U-05 §11: perChannelTintBlue EOL not found")
             else:
-                errors.append("  U-05 §11: perChannelTintBlue accessor anchor not found")
+                errors.append("  U-05 §11: perChannelTintBlue marker not found")
 
         if changed:
             write_file(lcg, src)
