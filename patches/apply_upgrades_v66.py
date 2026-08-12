@@ -86,10 +86,10 @@ def p80_software_lsc(source_dir):
             eol = text.find('\n', idx)
             if eol >= 0:
                 new_lines = '''
-val lensVignetteCorrectionStrength: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionStrength ?: 0.5f
+val lensVignetteCorrectionStrength: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionStrength ?: 0.0f
 val lensVignetteCorrectionRadius: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionRadius ?: 0.7f
 val lensVignetteCorrectionTintRed: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintRed ?: 0.0f
-val lensVignetteCorrectionTintGreen: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintGreen ?: -0.05f
+val lensVignetteCorrectionTintGreen: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintGreen ?: 0.0f
 val lensVignetteCorrectionTintBlue: Float get() = currentConfig?.lensCorrection?.vignetteCorrectionTintBlue ?: 0.0f
 '''
                 text = text[:eol+1] + new_lines + text[eol+1:]
@@ -121,10 +121,10 @@ val lensVignetteCorrectionTintBlue: Float get() = currentConfig?.lensCorrection?
     "vignette_correction": true,
     "chromatic_aberration": true,
     "_comment_v660": "P-80 v6.6.0: Software LSC radial correction — kill residual color vignette (green at edges) that hardware LSC leaves behind. Applied post-demosaic.",
-    "vignette_correction_strength": 0.5,
+    "vignette_correction_strength": 0.0,
     "vignette_correction_radius": 0.7,
     "vignette_correction_tint_red": 0.0,
-    "vignette_correction_tint_green": -0.05,
+    "vignette_correction_tint_green": 0.0,
     "vignette_correction_tint_blue": 0.0
   },'''
         text, n = replace_exact(text, old, new)
@@ -186,7 +186,9 @@ object SoftwareLscShader {
             float aspect = uImageSize.x / uImageSize.y;
             centered.x /= aspect;
             float dist = length(centered);
-            float vignette = 1.0 - uStrength * smoothstep(uRadius * 0.5, uRadius, dist);
+            // v6.6.1 FIX: formula was '1.0 - uStrength * ...' (DARKENED corners — sign bug).
+            // Now '1.0 + uStrength * ...' (BRIGHTENS corners = correct LSC behavior).
+            float vignette = 1.0 + uStrength * smoothstep(uRadius * 0.5, uRadius, dist);
             vec3 tint = vec3(1.0) + vec3(uTintR, uTintG, uTintB) * smoothstep(uRadius * 0.5, uRadius, dist);
             fragColor = vec4(rgb * vignette * tint, 1.0);
         }

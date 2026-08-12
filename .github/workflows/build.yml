@@ -1,6 +1,6 @@
 name: Build & Release APK
 
-# Builds the Photon Camera fork (Leica Perfect v6.6.0 ABSOLUTE) from upstream
+# Builds the Photon Camera fork (Leica Perfect v6.6.1 ABSOLUTE) from upstream
 # bjzhou/PhotonCamera 1.26.1 + surgical patches, then publishes the APK as a rolling
 # GitHub Release (tag "latest") for fast CDN-backed download.
 #
@@ -30,7 +30,7 @@ name: Build & Release APK
 # APK + fragments + 7z supercompressed archive published to the `latest` release.
 #
 # Rolling `latest` release URL (always the newest green build):
-#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.6.0-debug.apk
+#   https://github.com/Chrispsz/photon-camera-leica-perfect/releases/download/latest/LeicaPerfect-v6.6.1-debug.apk
 
 on:
   push:
@@ -100,7 +100,7 @@ jobs:
           nproc
           free -h
 
-      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.6.0)
+      - name: Build (clone upstream + patch + gradle assembleDefaultDebug — v6.6.1)
         env:
           CCACHE_DIR: ~/.ccache
         run: |
@@ -124,7 +124,7 @@ jobs:
       - name: Upload build artifact (90-day)
         uses: actions/upload-artifact@v4
         with:
-          name: LeicaPerfect-v6.6.0-debug-apk
+          name: LeicaPerfect-v6.6.1-debug-apk
           path: apk/*.apk
           retention-days: 90
           if-no-files-found: error
@@ -162,12 +162,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "Leica Perfect v6.6.0 ABSOLUTE (Round 09 hardware-aware — P-80..P-84: LSC + QuadBayer + Night mode + ZSL)"
+          name: "Leica Perfect v6.6.1 ABSOLUTE (Round 10 daylight fix — P-80 disabled + warmer WB + less watercolor)"
           body: |
-            # Leica Perfect v6.6.0 ABSOLUTE
+            # Leica Perfect v6.6.1 ABSOLUTE
 
             Photon Camera fork — built from upstream `bjzhou/PhotonCamera` 1.26.1
-            + surgical patches + **v6.5 VLM-driven pipeline fixes** + **v6.5.3 Round 08 polish tuning** + **v6.6.0 Round 09 hardware-aware pipeline fixes**.
+            + surgical patches + **v6.5 VLM-driven pipeline fixes** + **v6.5.3 Round 08 polish tuning** + **v6.6.0 Round 09 hardware-aware pipeline fixes** + **v6.6.1 Round 10 daylight regression fix**.
 
             ## ABSOLUTE build
             - **No mod menu** — mode_max is baked from JSON config (no UI to change it)
@@ -178,7 +178,32 @@ jobs:
             - **JPEG by default; RAW available on-demand** via gear icon → RAW toggle (v6.4.5)
             - **v6.4.7-fix2: DEBUG build** — reverted from release to debug build for guaranteed installability
 
-            ## What's new in v6.6.0 (Round 09 hardware-aware — 4 new patches)
+            ## What's new in v6.6.1 (Round 10 daylight regression fix)
+
+            ### v6.6.1 — Round 10 DAYLIGHT REGRESSION FIX
+
+            VLM pair comparison (Photon vs Xiaomi stock camera) scored Photon 3/10 vs Stock 8/10.
+            5 critical defects found in daylight scenes:
+
+            1. **Cool cyan-blue cast** — warmth 1.05 was insufficient for bright sun
+            2. **Blown highlights** — sky completely white, lost all cloud detail
+            3. **Watercolor effect** — luma NR 98.5% was extreme, smeared fine texture
+            4. **Soft detail + halos** — edge-only sharpening produced mushy + haloed look
+            5. **Corner darkening + magenta** — P-80 Software LSC had inverted vignette formula
+
+            **Fix (18 config params across 7 sections, config-only — zero build risk):**
+
+            - **P-80 DISABLED**: `vignette_correction_strength` 0.5→0.0 (shader formula also fixed: `1.0 -` → `1.0 +`)
+            - **Warmer WB**: `warmth` 1.05→1.12 (+7%), `vibrance` 1.06→1.10, `saturation_boost` 1.0→1.03
+            - **Kill watercolor**: `luminance` NR 0.985→0.94, `detail_preserve` 0.85→0.93
+            - **Less halos**: `sharpening.amount` 0.040→0.030, `edge_mask_strength` 4.5→3.0
+            - **Save clouds**: `highlight_clip_threshold_pct` 0.5→0.2, `highlight_rolloff` 0.22→0.18
+            - **Better HDR**: `long_frame_exposure_ev` 2.8→3.2, `short_frame_exposure_divisor` 2.5→3.0
+            - **per_lens.main**: 11 params (`ev_comp` 0.15→0.0, `gamma_shoulder` 0.35→0.45, `saturation_red` 0.93→1.05, `saturation_blue` 1.0→0.88 — counter cyan)
+
+            All v6.5.x + v6.6.0 fixes preserved (force_dcp_id=null, awb_clamp=false, multi_frame ON, P-81 QuadBayer, P-83 night mode, P-84 ZSL).
+
+            ### v6.6.0 (Round 09 hardware-aware — 4 new patches)
             Goal: make Photon surpass stock in ALL scenarios, not just 80%.
 
             ### P-80: Software LSC radial correction (kill residual color vignette)
@@ -278,11 +303,11 @@ jobs:
 
             ## Download
             ### Option A — single APK (easiest)
-            Download `LeicaPerfect-v6.6.0-debug.apk` and install.
+            Download `LeicaPerfect-v6.6.1-debug.apk` and install.
 
             ### Option B — 7z supercompressed (smallest download)
-            Download `LeicaPerfect-v6.6.0-debug.apk.7z` (LZMA2 max compression).
-            Extract with: `7z x LeicaPerfect-v6.6.0-debug.apk.7z`
+            Download `LeicaPerfect-v6.6.1-debug.apk.7z` (LZMA2 max compression).
+            Extract with: `7z x LeicaPerfect-v6.6.1-debug.apk.7z`
 
             ### Option C — fragments (parallel / resumable)
             Grab the `.part*` files + `reassemble.sh` + `fragments.sha256` and run `bash reassemble.sh`.

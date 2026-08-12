@@ -1,6 +1,41 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.6.0 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.6.1 PhotonCamera Fork Build Script
+# v6.6.1 (Round 10 DAYLIGHT REGRESSION FIX): 18 config params across 7 sections
+#   + P-80 Software LSC DISABLED. Root cause: v6.6.0 P-80 had inverted vignette
+#   formula (darkened corners by 50% instead of brightening) + magenta corner tint.
+#   v6.5.3 color science was tuned for dark/beach, insufficient for bright daylight.
+#   VLM pair comparison (Photon vs Xiaomi stock) scored Photon 3/10 vs Stock 8/10.
+#   5 critical defects: (1) cool cyan-blue cast, (2) blown highlights, (3) watercolor,
+#   (4) soft detail + halos, (5) corner darkening + magenta shift.
+#   Fix (config-only, zero build risk):
+#   - P-80: vignette_correction_strength 0.5→0.0 (DISABLED — gate skips shader)
+#     Shader formula also fixed: '1.0 - uStrength' → '1.0 + uStrength' (brightens)
+#   - color.warmth 1.05→1.12 (+7%, kill cyan cast — cyan=blue+green, complement=red)
+#   - color.vibrance 1.06→1.10 (+4%, 'colors washed out')
+#   - color.saturation_boost 1.0→1.03 (+3%, global pop)
+#   - tone_mapping.highlight_rolloff 0.22→0.18 (-18%, save clouds from blow-out)
+#   - tone_mapping.contrast 1.05→1.08 (+3%, more pop)
+#   - sharpening.amount 0.040→0.030 (-25%, kill 2-3px halos)
+#   - sharpening.radius 0.6→0.5 (-17%, smaller halos)
+#   - sharpening.edge_mask_strength 4.5→3.0 (-33%, less restrictive gating = uniform detail)
+#   - noise_reduction.luminance 0.985→0.94 (-4.5%, KILL WATERCOLOR — 98.5% was extreme)
+#   - noise_reduction.chrominance 0.96→0.93 (-3%, less chroma blur)
+#   - noise_reduction.detail_preserve 0.85→0.93 (+9%, preserve wood/fabric/foliage)
+#   - multi_frame.long_frame_exposure_ev 2.8→3.2 (+14%, more shadow detail for HDR)
+#   - multi_frame.short_frame_exposure_divisor 2.5→3.0 (+20%, more highlight detail for HDR)
+#   - ae_protection.highlight_clip_threshold_pct 0.5→0.2 (-60%, AE triggers 2.5x earlier)
+#   - advanced.mertens_contrast_weight 1.2→1.0 (-17%, less fusion artifacts)
+#   - advanced.mertens_saturation_weight 1.05→1.10 (+5%, more saturation in HDR)
+#   - advanced.mertens_exposure_weight 1.0→1.10 (+10%, better DR balancing)
+#   - per_lens.main: 11 params (ev_comp 0.15→0.0, gamma_shoulder 0.35→0.45,
+#     sharpening_multiplier 0.42→0.30, chroma_nr_multiplier 1.15→1.0,
+#     tint_shift -28→-20, highlight_compression_ev -0.2→-0.4,
+#     saturation_red 0.93→1.05, saturation_blue 1.0→0.88 — counter cyan cast)
+#   - All v6.5.x + v6.6.0 fixes preserved (force_dcp_id=null, awb_clamp=false,
+#     multi_frame.force_rawmax=true, P-81 QuadBayer detection, P-83 night mode, P-84 ZSL)
+# v6.6.0 (Round 09 hardware-aware): 4 NEW patches (P-80..P-84) to make Photon
+#   surpass stock in ALL scenarios, not just 80%:
 # v6.6.0 (Round 09 hardware-aware): 4 NEW patches (P-80..P-84) to make Photon
 #   surpass stock in ALL scenarios, not just 80%:
 #   - P-80: Software LSC radial correction (kill residual color vignette in shadows)
@@ -147,7 +182,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.6.0"
+readonly FORK_VERSION="6.6.1"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.

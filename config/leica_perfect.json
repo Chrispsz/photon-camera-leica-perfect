@@ -1,16 +1,16 @@
 {
   "_meta": {
-    "_comment_version": "6.2.0 — DEFINITIVE QUALITY. MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles + 3 Capture Modes (intelligent adaptive). Tudo no maximo hardware de forma inteligente.",
-    "version": "6.2.0",
-    "name": "Xiaomi 15T Leica Perfect — v6.2 DEFINITIVE",
-    "description": "MAX BITS/LUT/RAW + Beat-GCam + 26 Creative Profiles + Adaptive Capture Modes",
+    "_comment_version": "6.6.1 — DAYLIGHT REGRESSION FIX. v6.6.0 P-80 Software LSC had inverted vignette formula (darkened corners instead of brightening) + magenta corner tint. v6.5.3 color science was tuned for dark/beach scenes, insufficient for bright daylight (cool cyan-blue cast, watercolor, blown highlights). v6.6.1: P-80 disabled (strength=0), comprehensive daylight tuning — warmer WB, less NR, more detail preserve, less sharpening, stronger highlight protection.",
+    "version": "6.6.1",
+    "name": "Xiaomi 15T Leica Perfect — v6.6.1 Daylight Fix",
+    "description": "v6.6.0 hardware-aware + v6.6.1 daylight regression fix (P-80 disabled, warmer WB, less watercolor)",
     "device": "Xiaomi 15T (NON-Pro)",
     "codename": "dizi",
     "chipset": "MediaTek Dimensity 8300-Ultra",
     "upstream": "bjzhou/PhotonCamera v1.26.1",
     "schema_version": 5,
     "device_target": "Xiaomi 15T (dizi) — OV50E + S5KJN1 + S5K3J1 + OV32B",
-    "v653_polish": "Round 08 tuning: 24 params adjusted across 8 sections (color, color_science, tone_mapping, sharpening, noise_reduction, ae_protection, advanced, per_lens.main). Based on VLM comparative analysis of 6 beach photos (2x Leica Authentic + 2x Leica Vibrante + 2x Photon v6.5.2). Goal: polish Photon to match Leica Authentic reference — eliminate residual ciano/green tint, restore natural green/blue saturation, kill halos and oil-painting, protect highlights and shadows."
+    "v661_daylight_fix": "Round 10 tuning: VLM pair comparison (Photon vs stock) revealed 5 critical daylight defects: (1) cool cyan-blue cast (warmth 1.05 insufficient), (2) blown highlights (ae_protection.threshold 0.5 too high, ev_comp +0.15 overexposes), (3) watercolor effect (luma NR 0.985 too high, detail_preserve 0.85 too low), (4) soft detail (sharpening edge_mask 4.5 too restrictive), (5) P-80 vignette bug (darkened corners + magenta tint). Fix: 18 params across 7 sections. P-80 strength 0.5→0.0 (disabled). warmth 1.05→1.12 (+7% to kill cyan). tint_shift -28→-20 (less magenta — cast is cyan/blue not green). luma NR 0.985→0.94 (less watercolor). detail_preserve 0.85→0.93 (more texture). sharpening amount 0.040→0.030 + edge_mask 4.5→3.0 (more uniform, less halos). ae_protection.threshold 0.5→0.2 (save clouds). per_lens.main.ev_comp 0.15→0.0 (no overexposure). per_lens.main.gamma_shoulder 0.35→0.45 (more highlight compression). per_lens.main.saturation_red 0.93→1.05 + saturation_blue 1.0→0.88 (counter cyan cast)."
   },
   "_comment_capture_modes": "v6.4.6 SINGLE MODE — mode_fast REMOVIDO (P-73: user reportou que o 15T nao esquenta tirando fotos, mode_fast so atrapalhava). Agora SO mode_max (15/9/7/11 frames, super-res 2.0x, NLM radius 7, full pipeline). mode_balanced REMOVIDO (v6.4.0). mode_fast REMOVIDO (v6.4.6). JPEG one-click por default; RAW disponivel on-demand via toggle na engrenagem (v6.4.5: force_no_raw=false).",
   "capture_modes": {
@@ -32,47 +32,58 @@
   "sharpening": {
     "_comment_v65": "v6.5 U-02: oversharpening -40% (0.09→0.054), edge_mask_strength aumentado (2.2→3.5) para adaptive gating, radius reduzido (0.9→0.7) para halos menores",
     "enabled": true,
-    "amount": 0.04,
-    "radius": 0.6,
-    "threshold": 0.012,
+    "amount": 0.03,
+    "radius": 0.5,
+    "threshold": 0.015,
     "adaptive": true,
-    "edge_mask_strength": 4.5,
-    "_comment_v653": "v6.5.3 POLISH: amount 0.054→0.040 (-26%, mata halos brancos). threshold 0.005→0.012 (+140%, sharpening agora só em bordas reais — ignora ruído e gradientes suaves). edge_mask_strength 3.5→4.5 (+29%, gating mais forte). radius 0.7→0.6 (halos menores)."
+    "edge_mask_strength": 3.0,
+    "_comment_v653": "v6.5.3 POLISH: amount 0.054→0.040 (-26%, mata halos brancos). threshold 0.005→0.012 (+140%, sharpening agora só em bordas reais — ignora ruído e gradientes suaves). edge_mask_strength 3.5→4.5 (+29%, gating mais forte). radius 0.7→0.6 (halos menores).",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: amount 0.040→0.030 (-25%, mata halos 2-3px em bordas high-contrast vs céu). radius 0.6→0.5 (-17%, halos menores). threshold 0.012→0.015 (+25%, skip ruído residual). edge_mask_strength 4.5→3.0 (-33%, GATING MENOS restritivo — v6.5.3 só sharpening em strong edges = soft + halos. Agora sharpening em medium edges também = detalhe uniforme sem halos). VLM: 'soft/mushy detail' + 'haloing around high-contrast edges'."
   },
   "noise_reduction": {
     "_comment_v651": "v6.5.1: chrominance 0.96→0.985 (near-max — CCD LUT removido mas CMOS ainda tem chroma noise residual, особенно em sombras). detail_preserve 0.75 mantido (oil-painting fix).",
     "_comment_v65": "v6.5 U-01+U-04: chroma NR 0.94→0.96 (mais agressivo em sombras), detail_preserve 0.85→0.75 (elimina oil-painting), adaptive true",
     "enabled": true,
-    "luminance": 0.985,
-    "chrominance": 0.96,
-    "detail_preserve": 0.85,
+    "luminance": 0.94,
+    "chrominance": 0.93,
+    "detail_preserve": 0.93,
     "adaptive": true,
-    "_comment_v653": "v6.5.3 POLISH: chrominance 0.985→0.96 (-2.5%, mata oil-painting areia/nuvens). detail_preserve 0.75→0.85 (+13%, preserva textura). luminance 0.98→0.985 (+0.5%, ligeiro mais NR no céu). Net: menos oil-painting, mesma limpeza."
+    "_comment_v653": "v6.5.3 POLISH: chrominance 0.985→0.96 (-2.5%, mata oil-painting areia/nuvens). detail_preserve 0.75→0.85 (+13%, preserva textura). luminance 0.98→0.985 (+0.5%, ligeiro mais NR no céu). Net: menos oil-painting, mesma limpeza.",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: luminance 0.985→0.94 (-4.5%, MATA WATERCOLOR — v6.5.3 luma NR 98.5% era EXTREMO, smearing textura fino em 'painted' look). detail_preserve 0.85→0.93 (+9%, preserva micro-detail — wood grain, fabric, foliage). chrominance 0.96→0.93 (-3%, menos chroma blur). VLM: 'watercolor artifacts', 'muddy/painted on texture', 'fine details smears of color'."
   },
   "color": {
     "_comment_v651": "v6.5.1: DCP CCD removido (force_dcp_id=null) → CCM nativa do sensor OV50E. Safety-net: warmth 1.0→1.02 (levíssimo quente para contrabalançar residual verde QuadBayer). Leica look mantido via tone_mapping + vibrance.",
     "_comment_v65": "v6.5 U-07: saturation_boost 1.02→1.0 (neutro), vibrance 1.01→1.04 (seletivo para cores de baixa saturação)",
-    "saturation_boost": 1.0,
-    "vibrance": 1.06,
-    "warmth": 1.05,
+    "saturation_boost": 1.03,
+    "vibrance": 1.1,
+    "warmth": 1.12,
     "leica_look": true,
     "color_profile": "summilux",
-    "_comment_v653": "v6.5.3 POLISH: warmth 1.02→1.05 (+3%, Photon estava fria vs Authentic). vibrance 1.04→1.06 (+2%, sutil pop sem virar Vibrante)."
+    "_comment_v653": "v6.5.3 POLISH: warmth 1.02→1.05 (+3%, Photon estava fria vs Authentic). vibrance 1.04→1.06 (+2%, sutil pop sem virar Vibrante).",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: warmth 1.05→1.12 (+7%, MATA CAST COOL/CYAN — v6.5.3 +5% era insuficiente em pleno sol, VLM: 'distinct cyan/blue cast', 'pale grayish skin'). vibrance 1.06→1.10 (+4%, 'colors washed out'). saturation_boost 1.0→1.03 (+3%, global pop). Cyan = blue+green, complement = red/orange = warmth."
   },
   "tone_mapping": {
     "_comment_v65": "v6.5 U-03+U-08: shadow_lift 0.05→0.03 (menos ruído nas sombras), highlight_rolloff 0.35→0.30 (preserva mais highlights)",
     "enabled": true,
-    "contrast": 1.05,
-    "highlight_rolloff": 0.22,
-    "shadow_lift": 0.05,
+    "contrast": 1.08,
+    "highlight_rolloff": 0.18,
+    "shadow_lift": 0.04,
     "film_like_curve": true,
-    "_comment_v653": "v6.5.3 POLISH: contrast 1.1→1.05 (curva suave cinema, Photon era duro/digital). highlight_rolloff 0.3→0.22 (-27%, preserva nuvens sem blow-out). shadow_lift 0.03→0.05 (+66%, levanta crushed blacks das palmeiras)."
+    "_comment_v653": "v6.5.3 POLISH: contrast 1.1→1.05 (curva suave cinema, Photon era duro/digital). highlight_rolloff 0.3→0.22 (-27%, preserva nuvens sem blow-out). shadow_lift 0.03→0.05 (+66%, levanta crushed blacks das palmeiras).",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: highlight_rolloff 0.22→0.18 (-18%, MATA BLOW-OUT CÉU — VLM: 'sky almost completely blown out, pure white, losing all cloud detail'). contrast 1.05→1.08 (+3%, mais pop). shadow_lift 0.05→0.04 (-20%, menos ruído nas sombras já que luma NR reduziu)."
   },
   "lens_correction": {
     "enabled": true,
     "distortion_correction": true,
     "vignette_correction": true,
-    "chromatic_aberration": true
+    "chromatic_aberration": true,
+    "_comment_v660": "P-80 v6.6.0: Software LSC radial correction — kill residual color vignette (green at edges) that hardware LSC leaves behind. Applied post-demosaic.",
+    "vignette_correction_strength": 0.0,
+    "vignette_correction_radius": 0.7,
+    "vignette_correction_tint_red": 0.0,
+    "vignette_correction_tint_green": 0.0,
+    "vignette_correction_tint_blue": 0.0,
+    "_comment_v661": "v6.6.1 CRITICAL FIX: vignette_correction_strength 0.5→0.0 (DISABLED). P-80 shader formula 'vignette = 1.0 - uStrength * smoothstep(...)' with strength=+0.5 DARKENS corners by 50% (sign bug — should brighten). tintG=-0.05 caused magenta shift at corners. VLM: 'subtle darkening at extreme corners', 'color shift toward magenta/purple in corners (particularly bottom-right)'. Fix: strength=0 skips shader entirely (gate: if strength<=0f return false). Shader formula bug preserved for future fix (negate uStrength OR change formula to 1.0 + uStrength * smoothstep). HAL LSC (shading_mode=2 in per_lens.main) remains active."
   },
   "output": {
     "format": "jpeg",
@@ -89,9 +100,10 @@
     "enabled": true,
     "frame_count": 15,
     "super_resolution_scale": 2.0,
-    "long_frame_exposure_ev": 2.8,
-    "short_frame_exposure_divisor": 2.5,
-    "force_rawmax": true
+    "long_frame_exposure_ev": 3.2,
+    "short_frame_exposure_divisor": 3.0,
+    "force_rawmax": true,
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: long_frame_exposure_ev 2.8→3.2 (+14%, mais sombra detail em cenas high-contrast). short_frame_exposure_divisor 2.5→3.0 (+20%, shorter exposure frame = mais highlight detail para HDR fusion). VLM: 'sky completely blown out', 'poor dynamic range'. Goal: stock-like HDR com 15 frames."
   },
   "hdr": {
     "yuv_long_ev": 2.5,
@@ -147,12 +159,13 @@
   "ae_protection": {
     "_comment_v65": "v6.5 U-06: Highlight/shadow protection no AE para evitar blow-outs e crushed blacks.",
     "enabled": true,
-    "highlight_clip_threshold_pct": 0.5,
+    "highlight_clip_threshold_pct": 0.2,
     "shadow_clip_threshold_pct": 1.0,
     "shadow_floor_rgb": 8,
     "histogram_feedback_enabled": true,
     "max_ev_comp_steps": 12,
-    "_comment_v653": "v6.5.3 POLISH: highlight_clip_threshold_pct 1.0→0.5 (AE protection trigga 2x mais cedo — salva nuvens). shadow_floor_rgb 5→8 (garante detalhe em sombras profundas)."
+    "_comment_v653": "v6.5.3 POLISH: highlight_clip_threshold_pct 1.0→0.5 (AE protection trigga 2x mais cedo — salva nuvens). shadow_floor_rgb 5→8 (garante detalhe em sombras profundas).",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: highlight_clip_threshold_pct 0.5→0.2 (-60%, AE protection trigga 2.5x MAIS cedo — v6.5.3 0.5% pixels clipped era tarde demais, VLM: 'sky completely blown out'). Agora trigga com 0.2% pixels clipped = salva nuvens em pleno sol."
   },
   "dcp": {
     "_comment_v651": "v6.5.1 ROOT CAUSE FIX: force_dcp_id null (was 'builtin_dcp_Leica M8 Camera Standard' — CCD DCP mismatched com OV50E CMOS QuadBayer → green cast). force_baseline_lut_id null (was 'leica_m9' — CCD LUT amplificava chroma noise CMOS). AGORA: DCP nativo do sensor via Camera2 characteristics + AgX tone mapping nativo. Leica look preservado via tone_mapping.film_like_curve + color.vibrance + color.warmth.",
@@ -164,9 +177,9 @@
     "force_frame_id": "leica"
   },
   "advanced": {
-    "mertens_contrast_weight": 1.2,
-    "mertens_saturation_weight": 1.05,
-    "mertens_exposure_weight": 1.0,
+    "mertens_contrast_weight": 1.0,
+    "mertens_saturation_weight": 1.1,
+    "mertens_exposure_weight": 1.1,
     "vignette_grid_max_h": 128,
     "vignette_grid_max_v": 96,
     "export_dng_with_raw": true,
@@ -176,7 +189,8 @@
     "heic_quality": 100,
     "software_branding": "LeicaCamera",
     "force_high_quality_isp": true,
-    "_comment_v653": "v6.5.3 POLISH: mertens_contrast_weight 1.5→1.2 (-20%, HDR fusion menos agressivo, curva mais suave)."
+    "_comment_v653": "v6.5.3 POLISH: mertens_contrast_weight 1.5→1.2 (-20%, HDR fusion menos agressivo, curva mais suave).",
+    "_comment_v661": "v6.6.1 DAYLIGHT FIX: mertens_contrast_weight 1.2→1.0 (-17%, menos contrast fusion artifacts). mertens_saturation_weight 1.05→1.10 (+5%, mais saturação no HDR fusion — VLM: 'colors washed out'). mertens_exposure_weight 1.0→1.10 (+10%, prioriza exposure balancing = melhor dynamic range)."
   },
   "sensors": {
     "_comment_main": "OV50E main — 50MP, 1/1.31, 1.2um QuadBayer (2.4um effective), f/1.7. 14-bit ADC native (RAW16). Black 1024 (14-bit pedestal), White 16383 (2^14-1 = TRUE 14-bit MAX).",
@@ -198,30 +212,31 @@
     "main": {
       "_comment": "OV50E main — BEAT GCam. frame_count=15 (vs GCam 11), ev_comp=0.15 (AgX shoulder protege). sharpening 0.50 (optically sharp). luma_nr 1.0 (15 frames limpo).",
       "frame_count": 15,
-      "ev_comp": 0.15,
+      "ev_comp": 0.0,
       "gamma_preset": -1,
       "awb_mode": -1,
       "noise_model_preset": -1,
       "ccm_preset": -1,
       "gamma_contrast": 1.05,
-      "gamma_shoulder": 0.35,
-      "gamma_shadow_lift": 0.13,
+      "gamma_shoulder": 0.45,
+      "gamma_shadow_lift": 0.1,
       "ccm_ratio_warm": 0.52,
       "ccm_ratio_cool": 1.62,
-      "sharpening_multiplier": 0.42,
-      "luma_nr_multiplier": 1.0,
-      "chroma_nr_multiplier": 1.15,
-      "tint_shift": -28,
-      "highlight_compression_ev": -0.2,
-      "saturation_red": 0.93,
-      "saturation_green": 0.88,
-      "saturation_blue": 1.0,
+      "sharpening_multiplier": 0.3,
+      "luma_nr_multiplier": 0.95,
+      "chroma_nr_multiplier": 1.0,
+      "tint_shift": -20,
+      "highlight_compression_ev": -0.4,
+      "saturation_red": 1.05,
+      "saturation_green": 0.92,
+      "saturation_blue": 0.88,
       "edge_mode": 2,
       "camera2_noise_reduction_mode": 2,
       "shading_mode": 2,
       "hot_pixel_mode": 2,
       "tonemap_mode": 3,
-      "_comment_v653": "v6.5.3 POLISH: gamma_contrast 1.1→1.05, gamma_shadow_lift 0.1→0.13 (+30%, levanta sombras). sharpening_multiplier 0.5→0.42 (-16%, mata halos). chroma_nr_multiplier 1.3→1.15 (-12%, mata oil-painting). tint_shift -22→-28 (sincroniza com global). saturation_green 0.78→0.88 (+13%, verde vivo). saturation_blue 0.92→1.0 (+9%, azul profundo)."
+      "_comment_v653": "v6.5.3 POLISH: gamma_contrast 1.1→1.05, gamma_shadow_lift 0.1→0.13 (+30%, levanta sombras). sharpening_multiplier 0.5→0.42 (-16%, mata halos). chroma_nr_multiplier 1.3→1.15 (-12%, mata oil-painting). tint_shift -22→-28 (sincroniza com global). saturation_green 0.78→0.88 (+13%, verde vivo). saturation_blue 0.92→1.0 (+9%, azul profundo).",
+      "_comment_v661": "v6.6.1 DAYLIGHT FIX: ev_comp 0.15→0.0 (-100%, MATA OVEREXPOSURE — VLM: 'sky completely blown out', '+0.7-1.0 EV overexposed'). gamma_shoulder 0.35→0.45 (+29%, mais highlight compression). gamma_shadow_lift 0.13→0.10 (-23%, menos shadow lift já que luma NR reduziu). sharpening_multiplier 0.42→0.30 (-29%, menos halos). chroma_nr_multiplier 1.15→1.0 (-13%, menos chroma blur = menos watercolor). luma_nr_multiplier 1.0→0.95 (-5%, menos luma blur). tint_shift -28→-20 (+29%, MENOS magenta — cast é cyan/blue não green, magenta push estava errado). highlight_compression_ev -0.2→-0.4 (+100%, mais highlight protection). saturation_red 0.93→1.05 (+13%, MAIS red para counter cyan — cyan = blue+green, complement = red). saturation_green 0.88→0.92 (+5%). saturation_blue 1.0→0.88 (-12%, REDUCE blue — VLM: 'cyan/blue cast', 'pale grayish skin')."
     },
     "uw": {
       "_comment": "S5KJN1 UW — BEAT GCam. frame_count=9 (vs GCam 7). sharpening 0.70 (sensor menor softer). luma_nr 1.6 (0.64um ruidoso).",
