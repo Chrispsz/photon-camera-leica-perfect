@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# build-archlinux.sh — Leica Perfect v6.6.1 PhotonCamera Fork Build Script
+# build-archlinux.sh — Leica Perfect v6.6.2 PhotonCamera Fork Build Script
+# v6.6.2 (Round 11 NONE MODE PERFECTION): VLM 3-way selfie comparison (None vs Standard
+#   vs Stock) revealed None mode was flat/cool/soft vs Standard profile which adds
+#   warmth+contrast+skin sat+sharpening. v6.6.1 warmth 1.12 was insufficient.
+#   Bridge 2-none analysis showed AE/AWB hunting between shots 15s apart.
+#   Fix (config-only, zero build risk):
+#   - color.warmth 1.12→1.18 (+5%, total +12% from v6.5.3 baseline — kill cyan for good)
+#   - color.vibrance 1.10→1.12, saturation_boost 1.03→1.05
+#   - tone_mapping.contrast 1.08→1.15 (+6%, S-CURVE POP like Standard profile)
+#   - tone_mapping.highlight_rolloff 0.18→0.16, shadow_lift 0.04→0.03 (deeper blacks)
+#   - sharpening.amount 0.030→0.045 (+50%, match Standard sharpness)
+#   - sharpening.edge_mask 3.0→3.5, threshold 0.015→0.012 (more edges sharpened)
+#   - noise_reduction.luminance 0.94→0.95 (slight more clean like Standard)
+#   - noise_reduction.detail_preserve 0.93→0.90 (slight smoothing, NOT watercolor)
+#   - ae_protection.max_ev_comp_steps 12→8 (-33%, FASTER AE LOCK = less hunting)
+#   - ae_protection.highlight_clip_threshold 0.2→0.15
+#   - per_lens.main: 11 params (ev_comp 0.0→-0.05, gamma_contrast 1.05→1.10,
+#     gamma_shoulder 0.45→0.50, sharpening_multiplier 0.30→0.38, tint_shift -20→-15,
+#     saturation_red 1.05→1.15 (+10% SKIN TONE), saturation_green 0.92→1.0,
+#     highlight_compression -0.4→-0.5)
+#   - All v6.5.x + v6.6.0 + v6.6.1 fixes preserved
 # v6.6.1 (Round 10 DAYLIGHT REGRESSION FIX): 18 config params across 7 sections
 #   + P-80 Software LSC DISABLED. Root cause: v6.6.0 P-80 had inverted vignette
 #   formula (darkened corners by 50% instead of brightening) + magenta corner tint.
@@ -182,7 +202,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
-readonly FORK_VERSION="6.6.1"
+readonly FORK_VERSION="6.6.2"
 readonly FORK_NAME="Leica Perfect — DEFINITIVE QUALITY"
 readonly UPSTREAM_REPO="https://github.com/bjzhou/PhotonCamera.git"
 # ⚠️  Tag upstream é "1.26.1" (sem prefixo 'v'). O repo bjzhou NÃO usa 'v'.
